@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Create Agent Account · Estate AI</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/auth/auth.css"/>
+</head>
+<body>
+
+<div class="auth-shell">
+
+  <div class="auth-brand">
+    <div class="brand-top">
+      <div class="brand-logo"><i class="bi bi-houses-fill"></i></div>
+      <div class="brand-name">Estate<span class="gold">AI</span></div>
+    </div>
+
+    <div class="brand-content">
+      <div class="brand-eyebrow">Agent Registration</div>
+      <h1 class="brand-headline">Join Adelaide's smartest <em>real estate platform</em>.</h1>
+      <p class="brand-tagline">Create your free agent account and start generating professional listings powered by computer vision and AI.</p>
+
+      <div class="brand-features">
+        <div class="brand-feature"><i class="bi bi-check2-circle"></i> Free to start, no credit card</div>
+        <div class="brand-feature"><i class="bi bi-clock-history"></i> Save & revisit your generations</div>
+        <div class="brand-feature"><i class="bi bi-pencil-square"></i> Edit content before publishing</div>
+        <div class="brand-feature"><i class="bi bi-cloud-download-fill"></i> One-click export</div>
+      </div>
+    </div>
+
+    <div class="brand-bottom">
+      © 2025 Tech Adaptive Pandit Pty Ltd
+    </div>
+  </div>
+
+  <div class="auth-form-wrap">
+    <div class="auth-form">
+      <span class="auth-form-portal agent">
+        <i class="bi bi-person-plus"></i> New Account
+      </span>
+      <h1>Create your account</h1>
+      <p class="auth-form-sub">Get started in under a minute.</p>
+
+      <div class="auth-error" id="errBox"></div>
+
+      <form id="regForm" autocomplete="on">
+        <div class="field-row">
+          <div class="field-group">
+            <label for="full_name">Full name</label>
+            <div class="input-icon">
+              <i class="bi bi-person"></i>
+              <input type="text" id="full_name" placeholder="Jane Smith"/>
+            </div>
+          </div>
+          <div class="field-group">
+            <label for="username">Username *</label>
+            <div class="input-icon">
+              <i class="bi bi-at"></i>
+              <input type="text" id="username" required placeholder="janesmith"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="email">Email *</label>
+          <div class="input-icon">
+            <i class="bi bi-envelope"></i>
+            <input type="email" id="email" required autocomplete="email" placeholder="jane@agency.com.au"/>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label for="agency">Agency</label>
+            <div class="input-icon">
+              <i class="bi bi-building"></i>
+              <input type="text" id="agency" placeholder="Adelaide Realty"/>
+            </div>
+          </div>
+          <div class="field-group">
+            <label for="phone">Phone</label>
+            <div class="input-icon">
+              <i class="bi bi-telephone"></i>
+              <input type="tel" id="phone" placeholder="+61 400 000 000"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="password">Password * <span style="color:var(--muted);font-weight:400;">(min 6 characters)</span></label>
+          <div class="input-icon">
+            <i class="bi bi-lock"></i>
+            <input type="password" id="password" required minlength="6" autocomplete="new-password" placeholder="••••••••"/>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary-auth" id="submitBtn">
+          <span id="btnLabel">Create account</span>
+          <i class="bi bi-arrow-right"></i>
+        </button>
+      </form>
+
+      <div class="auth-divider"><span>OR</span></div>
+
+      <div class="auth-switch-link">
+        Already have an account? <a href="/login">Sign in</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const form   = document.getElementById('regForm');
+const errBox = document.getElementById('errBox');
+const btn    = document.getElementById('submitBtn');
+const lbl    = document.getElementById('btnLabel');
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  errBox.classList.remove('visible');
+  btn.disabled = true;
+  lbl.textContent = 'Creating account...';
+
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        username: document.getElementById('username').value.trim(),
+        email:    document.getElementById('email').value.trim(),
+        password: document.getElementById('password').value,
+        full_name:document.getElementById('full_name').value.trim(),
+        agency:   document.getElementById('agency').value.trim(),
+        phone:    document.getElementById('phone').value.trim(),
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Registration failed');
+    window.location.href = data.redirect || '/app/';
+  } catch (err) {
+    errBox.textContent = err.message;
+    errBox.classList.add('visible');
+    btn.disabled = false;
+    lbl.textContent = 'Create account';
+  }
+});
+</script>
+
+</body>
+</html>

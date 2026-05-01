@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Estate AI · Admin Console</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/style.css"/>
+<style>
+/* ── Admin-specific overrides ── */
+.sidebar { background: #111827; }
+.sidebar-brand-logo { background: var(--gold); color: var(--ink); box-shadow: 0 4px 12px rgba(251,191,36,0.3); }
+.nav-item.active { background: rgba(251, 191, 36, 0.15); color: var(--gold); }
+.nav-item.active::before { background: var(--gold); }
+.sidebar-avatar { background: linear-gradient(135deg, var(--gold), #d97706); color: var(--ink); }
+
+/* Tables */
+.data-table {
+  width: 100%;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  border-collapse: collapse;
+  overflow: hidden;
+}
+.data-table thead th {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.data-table tbody td {
+  padding: 12px 14px;
+  font-size: 0.86rem;
+  border-bottom: 1px solid var(--border-lt);
+  color: var(--ink-2);
+}
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr:hover { background: var(--bg); }
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.section-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.section-title-sub {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.btn-add {
+  background: var(--ink);
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+}
+.btn-add:hover { background: var(--ink-2); }
+
+.empty-card {
+  text-align: center;
+  padding: 50px 20px;
+  background: #fff;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+}
+.empty-card i { font-size: 38px; color: var(--muted-lt); margin-bottom: 10px; display: block; }
+
+/* Bar chart */
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  height: 140px;
+  gap: 8px;
+  padding: 14px 4px 0;
+}
+.bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.bar-fill {
+  width: 100%;
+  background: linear-gradient(180deg, var(--green) 0%, var(--green-d) 100%);
+  border-radius: 6px 6px 0 0;
+  min-height: 2px;
+  position: relative;
+  transition: height .4s;
+}
+.bar-fill::after {
+  content: attr(data-val);
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.bar-label {
+  font-size: 0.66rem;
+  color: var(--muted);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Tone distribution pie */
+.tone-pie-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: center;
+}
+.tone-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.84rem;
+  margin-bottom: 8px;
+}
+.tone-bar-row .label { width: 100px; color: var(--ink-2); text-transform: capitalize; font-weight: 500; }
+.tone-bar-row .bar {
+  flex: 1;
+  height: 8px;
+  background: var(--bg);
+  border-radius: 100px;
+  overflow: hidden;
+}
+.tone-bar-row .fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 100px;
+  transition: width .4s;
+}
+.tone-bar-row .count { width: 32px; text-align: right; font-weight: 600; color: var(--ink); font-size: 0.82rem; }
+
+input.modal-input, textarea.modal-input, select.modal-input {
+  width: 100%;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  margin-bottom: 4px;
+  background: #fff;
+  color: var(--ink);
+}
+input.modal-input:focus, textarea.modal-input:focus, select.modal-input:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1);
+}
+textarea.modal-input { min-height: 80px; resize: vertical; }
+.modal-field { margin-bottom: 14px; }
+.modal-field label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--ink-2);
+}
+.modal-field .help {
+  font-size: 0.74rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+</style>
+</head>
+<body>
+
+<div class="app-layout">
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-logo"><i class="bi bi-shield-lock-fill"></i></div>
+      <div class="sidebar-brand-name">Estate<span class="gold">AI</span></div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Admin</div>
+      <button class="nav-item active" data-page="overview" onclick="goPage('overview')">
+        <i class="bi bi-bar-chart-fill"></i> Overview
+      </button>
+      <button class="nav-item" data-page="users" onclick="goPage('users')">
+        <i class="bi bi-people-fill"></i> Users
+      </button>
+      <button class="nav-item" data-page="generations" onclick="goPage('generations')">
+        <i class="bi bi-clipboard-data-fill"></i> Generations
+      </button>
+      <button class="nav-item" data-page="templates" onclick="goPage('templates')">
+        <i class="bi bi-file-earmark-text-fill"></i> Templates
+      </button>
+      <button class="nav-item" data-page="compliance" onclick="goPage('compliance')">
+        <i class="bi bi-shield-check"></i> Compliance
+      </button>
+    </nav>
+
+    <div class="sidebar-user">
+      <div class="sidebar-avatar" id="userAvatar">A</div>
+      <div class="sidebar-user-info">
+        <div class="sidebar-user-name" id="userName">Admin</div>
+        <div class="sidebar-user-role">Administrator</div>
+      </div>
+      <button class="sidebar-logout" onclick="logout()" title="Sign out">
+        <i class="bi bi-box-arrow-right"></i>
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;">
+        <button class="menu-btn" onclick="toggleSidebar()"><i class="bi bi-list"></i></button>
+        <div class="topbar-title">
+          <h1 id="pageTitle">Overview</h1>
+          <span class="crumb" id="pageCrumb">Platform analytics</span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span class="live-pill" style="background:#fef3c7;color:#92400e;"><i class="bi bi-shield-fill-check"></i> Admin</span>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- ═══════ OVERVIEW ═══════ -->
+      <section class="page active" id="page-overview">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div>
+              <div class="stat-card-label">Total agents</div>
+              <div class="stat-card-value" id="adminTotalAgents">—</div>
+            </div>
+            <div class="stat-card-icon green"><i class="bi bi-people-fill"></i></div>
+          </div>
+          <div class="stat-card">
+            <div>
+              <div class="stat-card-label">Active agents</div>
+              <div class="stat-card-value" id="adminActiveAgents">—</div>
+            </div>
+            <div class="stat-card-icon blue"><i class="bi bi-person-check-fill"></i></div>
+          </div>
+          <div class="stat-card">
+            <div>
+              <div class="stat-card-label">Total generations</div>
+              <div class="stat-card-value" id="adminTotalGens">—</div>
+            </div>
+            <div class="stat-card-icon gold"><i class="bi bi-stars"></i></div>
+          </div>
+          <div class="stat-card">
+            <div>
+              <div class="stat-card-label">Last 7 days</div>
+              <div class="stat-card-value" id="adminGens7d">—</div>
+            </div>
+            <div class="stat-card-icon purple"><i class="bi bi-calendar-week-fill"></i></div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns: 2fr 1fr;gap:16px;margin-bottom:16px;">
+          <div class="panel">
+            <div class="panel-label" style="color:var(--ink);"><i class="bi bi-graph-up"></i> Generations · last 14 days</div>
+            <div class="bar-chart" id="adminBarChart"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-label" style="color:var(--ink);"><i class="bi bi-palette"></i> Tone distribution</div>
+            <div id="adminToneDist"></div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns: 1fr 1fr;gap:16px;">
+          <div class="panel">
+            <div class="panel-label" style="color:var(--ink);"><i class="bi bi-trophy"></i> Top agents</div>
+            <div id="adminTopAgents"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-label" style="color:var(--ink);"><i class="bi bi-geo-alt-fill"></i> Top suburbs</div>
+            <div id="adminTopSuburbs"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════ USERS ═══════ -->
+      <section class="page" id="page-users">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Users & agents</div>
+            <div class="section-title-sub">Manage who can access the platform</div>
+          </div>
+          <button class="btn-add" onclick="showAddUserModal()">
+            <i class="bi bi-plus-lg"></i> Add user
+          </button>
+        </div>
+        <div id="usersContainer"></div>
+      </section>
+
+      <!-- ═══════ GENERATIONS ═══════ -->
+      <section class="page" id="page-generations">
+        <div class="section-header">
+          <div>
+            <div class="section-title">All generations</div>
+            <div class="section-title-sub">Monitor every listing produced on the platform</div>
+          </div>
+        </div>
+        <div id="genContainer"></div>
+      </section>
+
+      <!-- ═══════ TEMPLATES ═══════ -->
+      <section class="page" id="page-templates">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Listing templates</div>
+            <div class="section-title-sub">Default opening lines for each tone</div>
+          </div>
+          <button class="btn-add" onclick="showAddTemplateModal()">
+            <i class="bi bi-plus-lg"></i> Add template
+          </button>
+        </div>
+        <div id="templatesContainer"></div>
+      </section>
+
+      <!-- ═══════ COMPLIANCE ═══════ -->
+      <section class="page" id="page-compliance">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Compliance rules</div>
+            <div class="section-title-sub">Pattern-based guardrails for listing content (Australian guidelines)</div>
+          </div>
+          <button class="btn-add" onclick="showAddComplianceModal()">
+            <i class="bi bi-plus-lg"></i> Add rule
+          </button>
+        </div>
+        <div id="complianceContainer"></div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modalTitle">Modal</h3>
+      <button class="modal-close" onclick="closeModal()"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot" id="modalFoot"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/admin/admin.js"></script>
+</body>
+</html>

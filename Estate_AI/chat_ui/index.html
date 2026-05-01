@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Estate AI · Agent Dashboard</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/style.css"/>
+</head>
+<body>
+
+<div class="app-layout">
+
+  <!-- ═══════ SIDEBAR ═══════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-logo"><i class="bi bi-houses-fill"></i></div>
+      <div class="sidebar-brand-name">Estate<span class="gold">AI</span></div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Workspace</div>
+      <button class="nav-item active" data-page="dashboard" onclick="goPage('dashboard')">
+        <i class="bi bi-speedometer2"></i> <span data-i18n="nav_dashboard">Dashboard</span>
+      </button>
+      <button class="nav-item" data-page="generator" onclick="goPage('generator')">
+        <i class="bi bi-stars"></i> <span data-i18n="nav_generator">Generator</span>
+      </button>
+      <button class="nav-item" data-page="history" onclick="goPage('history')">
+        <i class="bi bi-clock-history"></i> <span data-i18n="nav_history">History</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-user">
+      <div class="sidebar-avatar" id="userAvatar">A</div>
+      <div class="sidebar-user-info">
+        <div class="sidebar-user-name" id="userName">Loading...</div>
+        <div class="sidebar-user-role" id="userRole">Agent</div>
+      </div>
+      <button class="sidebar-logout" onclick="logout()" title="Sign out">
+        <i class="bi bi-box-arrow-right"></i>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ═══════ MAIN ═══════ -->
+  <main class="main">
+
+    <header class="topbar">
+      <div style="display:flex;align-items:center;">
+        <button class="menu-btn" onclick="toggleSidebar()"><i class="bi bi-list"></i></button>
+        <div class="topbar-title">
+          <h1 id="pageTitle">Dashboard</h1>
+          <span class="crumb" id="pageCrumb">Welcome back</span>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <span class="live-pill"><span class="live-dot"></span> <span data-i18n="pill_live">Live</span></span>
+        <div class="lang-selector" id="langSelector">
+          <button class="lang-btn" onclick="toggleLangMenu()">
+            <span id="langFlag">🇬🇧</span>
+            <span id="langLabel">EN</span>
+            <i class="bi bi-chevron-down"></i>
+          </button>
+          <ul class="lang-menu" id="langMenu">
+            <li onclick="setLanguage('en')"><span>🇬🇧</span> English</li>
+            <li onclick="setLanguage('hi')"><span>🇮🇳</span> हिंदी</li>
+            <li onclick="setLanguage('zh')"><span>🇨🇳</span> 中文</li>
+            <li onclick="setLanguage('ja')"><span>🇯🇵</span> 日本語</li>
+          </ul>
+        </div>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- ═══════ DASHBOARD HOME ═══════ -->
+      <section class="page active" id="page-dashboard">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div>
+              <div class="stat-card-label">Total generations</div>
+              <div class="stat-card-value" id="statTotal">—</div>
+            </div>
+            <div class="stat-card-icon green"><i class="bi bi-stars"></i></div>
+          </div>
+          <div class="stat-card">
+            <div>
+              <div class="stat-card-label">This week</div>
+              <div class="stat-card-value" id="statWeek">—</div>
+            </div>
+            <div class="stat-card-icon blue"><i class="bi bi-calendar-week"></i></div>
+          </div>
+          <div class="stat-card">
+            <div>
+              <div class="stat-card-label">Most used tone</div>
+              <div class="stat-card-value" id="statTone" style="font-size: 1.2rem;">—</div>
+            </div>
+            <div class="stat-card-icon gold"><i class="bi bi-palette"></i></div>
+          </div>
+          <div class="stat-card">
+            <div>
+              <div class="stat-card-label">Last activity</div>
+              <div class="stat-card-value" id="statLast" style="font-size: 1rem;">—</div>
+            </div>
+            <div class="stat-card-icon purple"><i class="bi bi-clock"></i></div>
+          </div>
+        </div>
+
+        <div class="panel" style="padding: 28px 32px;">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+            <div style="width:56px;height:56px;background:linear-gradient(135deg, #16a34a, #15803d);border-radius:14px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:24px;">
+              <i class="bi bi-rocket-takeoff"></i>
+            </div>
+            <div>
+              <h2 style="font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;color:var(--ink);margin-bottom:4px;">Quick Start</h2>
+              <p style="color:var(--muted);font-size:0.9rem;">Create your next property listing in under 30 seconds.</p>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:14px;margin-bottom:20px;">
+            <div style="padding:16px;background:var(--bg);border-radius:10px;border:1px solid var(--border);">
+              <div style="font-weight:600;font-size:0.92rem;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+                <span style="background:var(--green-lt);color:var(--green-d);width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:0.8rem;">1</span>
+                Upload photos
+              </div>
+              <p style="color:var(--muted);font-size:0.82rem;line-height:1.5;">Drag and drop interior or exterior shots. Up to 10 images.</p>
+            </div>
+            <div style="padding:16px;background:var(--bg);border-radius:10px;border:1px solid var(--border);">
+              <div style="font-weight:600;font-size:0.92rem;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+                <span style="background:var(--green-lt);color:var(--green-d);width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:0.8rem;">2</span>
+                Add details
+              </div>
+              <p style="color:var(--muted);font-size:0.82rem;line-height:1.5;">Beds, baths, suburb, price &mdash; whatever you have.</p>
+            </div>
+            <div style="padding:16px;background:var(--bg);border-radius:10px;border:1px solid var(--border);">
+              <div style="font-weight:600;font-size:0.92rem;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+                <span style="background:var(--green-lt);color:var(--green-d);width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:0.8rem;">3</span>
+                Get content
+              </div>
+              <p style="color:var(--muted);font-size:0.82rem;line-height:1.5;">AI writes a polished listing and FB/IG ad copy.</p>
+            </div>
+          </div>
+
+          <button class="btn-generate" onclick="goPage('generator')" style="max-width:240px;">
+            <i class="bi bi-stars"></i> Start generating
+          </button>
+        </div>
+
+        <div style="margin-top:24px;display:grid;grid-template-columns: 1fr 1fr; gap:16px;">
+          <div class="panel">
+            <div class="panel-label"><i class="bi bi-clock-history"></i> Recent</div>
+            <div id="recentList" style="display:flex;flex-direction:column;gap:8px;">
+              <div style="text-align:center;padding:24px;color:var(--muted);font-size:0.85rem;">Loading...</div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-label"><i class="bi bi-lightbulb"></i> Tips</div>
+            <ul style="list-style:none;padding:0;margin:0;font-size:0.86rem;line-height:1.7;color:var(--ink-2);">
+              <li style="display:flex;gap:8px;padding:6px 0;"><i class="bi bi-check-circle-fill" style="color:var(--green);margin-top:3px;"></i> Upload 4-6 photos for best results.</li>
+              <li style="display:flex;gap:8px;padding:6px 0;"><i class="bi bi-check-circle-fill" style="color:var(--green);margin-top:3px;"></i> Include a floor plan if you have one.</li>
+              <li style="display:flex;gap:8px;padding:6px 0;"><i class="bi bi-check-circle-fill" style="color:var(--green);margin-top:3px;"></i> Use the Family tone for homes near schools.</li>
+              <li style="display:flex;gap:8px;padding:6px 0;"><i class="bi bi-check-circle-fill" style="color:var(--green);margin-top:3px;"></i> Always review compliance warnings before publishing.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════ GENERATOR ═══════ -->
+      <section class="page" id="page-generator">
+        <div class="workspace">
+
+          <!-- LEFT -->
+          <div>
+            <div class="panel">
+              <div class="panel-num">01</div>
+              <div class="panel-label"><i class="bi bi-cloud-arrow-up"></i> <span data-i18n="step1_label">Upload Images</span></div>
+              <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+                <input type="file" id="fileInput" accept="image/*" multiple hidden onchange="handleFiles(this.files)"/>
+                <div id="uploadPlaceholder" class="upload-ph">
+                  <i class="bi bi-cloud-arrow-up"></i>
+                  <p data-i18n-html="upload_drop"><strong>Drop images here</strong> or click to browse</p>
+                  <small data-i18n="upload_help">JPG · PNG · up to 10 photos</small>
+                </div>
+                <div id="previewGrid" class="preview-grid"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+                <small id="imgCount" style="color:var(--muted);font-size:0.78rem;"></small>
+                <button id="clearBtn" class="btn-clear hidden" onclick="clearAll()">
+                  <i class="bi bi-trash3"></i> <span data-i18n="btn_clear">Clear</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-num">02</div>
+              <div class="panel-label"><i class="bi bi-pencil-square"></i> <span data-i18n="step2_label">Property Details</span></div>
+              <div class="form-row cols-3">
+                <div class="field">
+                  <label class="field-label"><i class="bi bi-door-open"></i> <span data-i18n="field_beds">Beds</span></label>
+                  <input type="number" id="beds" placeholder="3" min="0"/>
+                </div>
+                <div class="field">
+                  <label class="field-label"><i class="bi bi-droplet"></i> <span data-i18n="field_baths">Baths</span></label>
+                  <input type="number" id="baths" placeholder="2" min="0"/>
+                </div>
+                <div class="field">
+                  <label class="field-label"><i class="bi bi-car-front"></i> <span data-i18n="field_parking">Parking</span></label>
+                  <input type="number" id="parking" placeholder="1" min="0"/>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="field">
+                  <label class="field-label" data-i18n="field_suburb">Suburb</label>
+                  <input type="text" id="suburb" data-i18n="suburb_placeholder" placeholder="e.g. Glenelg, Norwood, Unley"/>
+                </div>
+              </div>
+              <div class="form-row cols-2">
+                <div class="field">
+                  <label class="field-label" data-i18n="field_land">Land Size</label>
+                  <input type="text" id="land_size" placeholder="450 sqm"/>
+                </div>
+                <div class="field">
+                  <label class="field-label">
+                    <span data-i18n="field_price">Price</span>
+                    <span class="opt" data-i18n="optional">(optional)</span>
+                  </label>
+                  <input type="text" id="price" placeholder="$750,000"/>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-num">03</div>
+              <div class="panel-label"><i class="bi bi-palette"></i> <span data-i18n="step3_label">Content Tone</span></div>
+              <div class="tone-grid">
+                <button class="tone-btn active" data-tone="professional" onclick="setTone(this)">🏢 <span data-i18n="tone_professional">Professional</span></button>
+                <button class="tone-btn" data-tone="luxury" onclick="setTone(this)">💎 <span data-i18n="tone_luxury">Luxury</span></button>
+                <button class="tone-btn" data-tone="family" onclick="setTone(this)">👨‍👩‍👧 <span data-i18n="tone_family">Family</span></button>
+                <button class="tone-btn" data-tone="investment" onclick="setTone(this)">📈 <span data-i18n="tone_investment">Investment</span></button>
+              </div>
+            </div>
+
+            <button class="btn-generate" id="genBtn" onclick="generate()">
+              <i class="bi bi-stars"></i> <span data-i18n="btn_generate">Generate Content</span>
+            </button>
+          </div>
+
+          <!-- RIGHT -->
+          <div class="output-panel">
+            <!-- Empty state -->
+            <div id="emptyState" class="empty-state">
+              <div class="empty-art"><i class="bi bi-houses"></i></div>
+              <h3 data-i18n="empty_heading">Ready when you are</h3>
+              <p data-i18n-html="empty_sub">Fill in the left panel and click <span style="color:var(--green-d);font-weight:600;">Generate Content</span> to get a professional listing and social media ads in seconds.</p>
+              <div class="steps-row">
+                <span class="step-chip"><i class="bi bi-camera"></i> <span data-i18n="empty_step1">Upload photos</span></span>
+                <i class="bi bi-chevron-right" style="color:var(--muted-lt);"></i>
+                <span class="step-chip"><i class="bi bi-pencil"></i> <span data-i18n="empty_step2">Add details</span></span>
+                <i class="bi bi-chevron-right" style="color:var(--muted-lt);"></i>
+                <span class="step-chip"><i class="bi bi-stars"></i> <span data-i18n="empty_step3">Get content</span></span>
+              </div>
+            </div>
+
+            <!-- Loading -->
+            <div id="loadingState" class="loading-state hidden">
+              <div class="spinner-lg"></div>
+              <p style="font-weight:600;color:var(--ink);" data-i18n="loading_msg">Analysing images & generating content...</p>
+              <p style="color:var(--muted);font-size:0.82rem;margin-top:6px;" data-i18n="loading_tech">YOLOv8 detecting objects · CLIP classifying rooms · LLaVA written description</p>
+            </div>
+
+            <!-- Output -->
+            <div id="outputArea" class="hidden" style="flex:1;display:flex;flex-direction:column;">
+
+              <div id="complianceBar" class="hidden"></div>
+
+              <div id="detectedBar" class="detected-bar"></div>
+
+              <div id="imageDescriptions"></div>
+
+              <div id="analysisPanel" class="analysis-panel">
+                <div class="analysis-header">
+                  <i class="bi bi-cpu" style="color:var(--green);"></i>
+                  <span class="analysis-header-title" data-i18n="analysis_heading">AI Property Analysis</span>
+                  <span class="analysis-header-sub" data-i18n="analysis_sub">Room type · Condition · Fixtures · Style · Luxury features</span>
+                </div>
+                <p style="color:var(--muted);font-style:italic;font-size:0.82rem;" data-i18n="analysis_placeholder">Analysis will appear here after generation.</p>
+              </div>
+
+              <div class="tabs">
+                <button class="tab-btn active" data-tab="tabListing" onclick="switchTab('tabListing', this)">
+                  <i class="bi bi-house-door"></i> <span data-i18n="tab_listing">Listing</span>
+                </button>
+                <button class="tab-btn" data-tab="tabAds" onclick="switchTab('tabAds', this)">
+                  <i class="bi bi-megaphone"></i> <span data-i18n="tab_ads">FB / IG Ads</span>
+                </button>
+              </div>
+
+              <div class="tab-pane active" id="tabListing">
+                <div class="result-card">
+                  <div class="result-head">
+                    <div>
+                      <span class="result-title" data-i18n="listing_title">Realestate.com.au Listing</span>
+                      <span class="badge badge-success" style="margin-left:8px;" data-i18n="listing_badge">150–300 words · SEO</span>
+                    </div>
+                    <div class="result-actions">
+                      <button class="btn-sm" id="editListingBtn" onclick="toggleEdit('listingBody', this)">
+                        <i class="bi bi-pencil"></i> <span data-i18n="btn_edit">Edit</span>
+                      </button>
+                      <button class="btn-sm" onclick="copyEl('listingBody', this)">
+                        <i class="bi bi-clipboard"></i> <span data-i18n="btn_copy">Copy</span>
+                      </button>
+                      <button class="btn-sm" onclick="dlTxt('listingBody','listing.txt')">
+                        <i class="bi bi-download"></i> <span data-i18n="btn_save">Save</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="result-body" id="listingBody"></div>
+                </div>
+              </div>
+
+              <div class="tab-pane" id="tabAds">
+                <div id="adsContainer"></div>
+              </div>
+
+              <div class="export-row">
+                <button class="btn-sm primary" onclick="saveEdits()" id="saveEditsBtn" style="display:none;">
+                  <i class="bi bi-check-lg"></i> <span data-i18n="btn_save_edits">Save edits</span>
+                </button>
+                <button class="btn-sm primary" onclick="exportAll()">
+                  <i class="bi bi-box-arrow-down"></i> <span data-i18n="btn_dl_all">Download All</span>
+                </button>
+                <button class="btn-sm" onclick="copyAll()">
+                  <i class="bi bi-clipboard"></i> <span data-i18n="btn_copy_all">Copy All</span>
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════ HISTORY ═══════ -->
+      <section class="page" id="page-history">
+        <div class="panel" style="padding:0;background:transparent;border:none;">
+          <div id="historyContainer">
+            <div style="text-align:center;padding:60px 20px;color:var(--muted);">Loading...</div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- ═══════ MODAL ═══════ -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modalTitle">Detail</h3>
+      <button class="modal-close" onclick="closeModal()"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="/translations.js"></script>
+<script src="/script.js"></script>
+</body>
+</html>

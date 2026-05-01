@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Admin Sign In · Estate AI</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/auth/auth.css"/>
+<style>
+.auth-brand.admin {
+  background: linear-gradient(135deg, #1f2937 0%, #111827 50%, #030712 100%);
+}
+.auth-brand.admin::before {
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.12) 0%, transparent 70%);
+}
+.auth-brand.admin::after {
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
+}
+.auth-brand.admin .brand-logo {
+  background: var(--gold);
+  color: var(--ink);
+  box-shadow: 0 8px 24px rgba(251, 191, 36, 0.3);
+}
+.auth-brand.admin .brand-feature i {
+  background: rgba(251, 191, 36, 0.15);
+  border-color: rgba(251, 191, 36, 0.4);
+  color: var(--gold);
+}
+</style>
+</head>
+<body>
+
+<div class="auth-shell">
+
+  <div class="auth-brand admin">
+    <div class="brand-top">
+      <div class="brand-logo"><i class="bi bi-shield-lock-fill"></i></div>
+      <div class="brand-name">Estate<span class="gold">AI</span></div>
+    </div>
+
+    <div class="brand-content">
+      <div class="brand-eyebrow" style="color: rgba(251, 191, 36, 0.85);">System Administration</div>
+      <h1 class="brand-headline">Manage your <em>platform</em>.</h1>
+      <p class="brand-tagline">Oversee users, monitor outputs, manage compliance rules and templates, and review system usage.</p>
+
+      <div class="brand-features">
+        <div class="brand-feature"><i class="bi bi-people-fill"></i> User & agent management</div>
+        <div class="brand-feature"><i class="bi bi-clipboard-data-fill"></i> Generated output history</div>
+        <div class="brand-feature"><i class="bi bi-shield-check"></i> Compliance rules editor</div>
+        <div class="brand-feature"><i class="bi bi-file-earmark-text-fill"></i> Listing templates</div>
+        <div class="brand-feature"><i class="bi bi-graph-up-arrow"></i> Usage analytics</div>
+      </div>
+    </div>
+
+    <div class="brand-bottom">
+      © 2025 Tech Adaptive Pandit Pty Ltd · Restricted area
+    </div>
+  </div>
+
+  <div class="auth-form-wrap">
+    <div class="auth-form">
+      <span class="auth-form-portal admin">
+        <i class="bi bi-shield-lock"></i> Admin Portal
+      </span>
+      <h1>Administrator sign in</h1>
+      <p class="auth-form-sub">Restricted access. Authorised personnel only.</p>
+
+      <div class="auth-info">
+        <strong>Demo credentials</strong>
+        Username: <code>admin</code> &nbsp; Password: <code>admin123</code>
+      </div>
+
+      <div class="auth-error" id="errBox"></div>
+
+      <form id="loginForm" autocomplete="on">
+        <div class="field-group">
+          <label for="username">Admin username</label>
+          <div class="input-icon">
+            <i class="bi bi-person-fill-gear"></i>
+            <input type="text" id="username" required autocomplete="username" placeholder="admin"/>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="password">Password</label>
+          <div class="input-icon">
+            <i class="bi bi-lock-fill"></i>
+            <input type="password" id="password" required autocomplete="current-password" placeholder="••••••••"/>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary-auth admin" id="submitBtn">
+          <span id="btnLabel">Sign in to admin panel</span>
+          <i class="bi bi-arrow-right" id="btnIcon"></i>
+        </button>
+      </form>
+
+      <div class="auth-portal-toggle">
+        <a href="/login"><i class="bi bi-person-badge"></i> Agent</a>
+        <a href="/admin-login" class="active"><i class="bi bi-shield-lock"></i> Admin</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const form   = document.getElementById('loginForm');
+const errBox = document.getElementById('errBox');
+const btn    = document.getElementById('submitBtn');
+const lbl    = document.getElementById('btnLabel');
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  errBox.classList.remove('visible');
+  btn.disabled = true;
+  lbl.textContent = 'Verifying...';
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        username: document.getElementById('username').value.trim(),
+        password: document.getElementById('password').value,
+        role: 'admin'
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Sign in failed');
+    window.location.href = data.redirect || '/admin/';
+  } catch (err) {
+    errBox.textContent = err.message;
+    errBox.classList.add('visible');
+    btn.disabled = false;
+    lbl.textContent = 'Sign in to admin panel';
+  }
+});
+</script>
+
+</body>
+</html>

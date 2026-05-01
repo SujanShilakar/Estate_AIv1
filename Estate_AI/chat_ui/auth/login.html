@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Agent Sign In · Estate AI</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/auth/auth.css"/>
+</head>
+<body>
+
+<div class="auth-shell">
+
+  <!-- Left: Brand panel -->
+  <div class="auth-brand">
+    <div class="brand-top">
+      <div class="brand-logo"><i class="bi bi-houses-fill"></i></div>
+      <div class="brand-name">Estate<span class="gold">AI</span></div>
+    </div>
+
+    <div class="brand-content">
+      <div class="brand-eyebrow">Adelaide Real Estate · AI-Powered</div>
+      <h1 class="brand-headline">Turn property photos into <em>marketing gold.</em></h1>
+      <p class="brand-tagline">Upload images, add details, and generate professional realestate.com.au listings and social media ads in seconds.</p>
+
+      <div class="brand-features">
+        <div class="brand-feature"><i class="bi bi-lightning-charge-fill"></i> 5× faster than writing manually</div>
+        <div class="brand-feature"><i class="bi bi-shield-check"></i> Built-in compliance checks</div>
+        <div class="brand-feature"><i class="bi bi-translate"></i> Multilingual output (EN, HI, ZH, JA)</div>
+        <div class="brand-feature"><i class="bi bi-cloud-arrow-down-fill"></i> Export-ready content</div>
+      </div>
+    </div>
+
+    <div class="brand-bottom">
+      © 2025 Tech Adaptive Pandit Pty Ltd · YOLOv8 · CLIP · LLaVA
+    </div>
+  </div>
+
+  <!-- Right: Form -->
+  <div class="auth-form-wrap">
+    <div class="auth-form">
+      <span class="auth-form-portal agent">
+        <i class="bi bi-person-badge"></i> Agent Portal
+      </span>
+      <h1>Welcome back</h1>
+      <p class="auth-form-sub">Sign in to generate property listings and ads.</p>
+
+      <div class="auth-info">
+        <strong>Demo credentials</strong>
+        Username: <code>agent</code> &nbsp; Password: <code>agent123</code>
+      </div>
+
+      <div class="auth-error" id="errBox"></div>
+
+      <form id="loginForm" autocomplete="on">
+        <div class="field-group">
+          <label for="username">Username or email</label>
+          <div class="input-icon">
+            <i class="bi bi-person"></i>
+            <input type="text" id="username" name="username" required autocomplete="username" placeholder="agent or your@email.com"/>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="password">Password</label>
+          <div class="input-icon">
+            <i class="bi bi-lock"></i>
+            <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="••••••••"/>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary-auth" id="submitBtn">
+          <span id="btnLabel">Sign in</span>
+          <i class="bi bi-arrow-right" id="btnIcon"></i>
+        </button>
+      </form>
+
+      <div class="auth-divider"><span>OR</span></div>
+
+      <div class="auth-switch-link">
+        New here? <a href="/register">Create an agent account</a>
+      </div>
+
+      <div class="auth-portal-toggle">
+        <a href="/login" class="active"><i class="bi bi-person-badge"></i> Agent</a>
+        <a href="/admin-login"><i class="bi bi-shield-lock"></i> Admin</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const form    = document.getElementById('loginForm');
+const errBox  = document.getElementById('errBox');
+const btn     = document.getElementById('submitBtn');
+const lbl     = document.getElementById('btnLabel');
+const icon    = document.getElementById('btnIcon');
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  errBox.classList.remove('visible');
+  btn.disabled = true;
+  lbl.textContent = 'Signing in...';
+  icon.outerHTML = '<span class="spinner" id="btnIcon"></span>';
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        username: document.getElementById('username').value.trim(),
+        password: document.getElementById('password').value,
+        role: 'agent'
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Sign in failed');
+    window.location.href = data.redirect || '/app/';
+  } catch (err) {
+    errBox.textContent = err.message;
+    errBox.classList.add('visible');
+    btn.disabled = false;
+    lbl.textContent = 'Sign in';
+    document.getElementById('btnIcon').outerHTML = '<i class="bi bi-arrow-right" id="btnIcon"></i>';
+  }
+});
+</script>
+
+</body>
+</html>
