@@ -303,6 +303,7 @@ function renderPreviews() {
 
   if (!selectedFiles.length) {
     ph.style.display = '';
+    cnt.classList.add('hidden');
     cnt.textContent = '';
     clr.classList.add('hidden');
     return;
@@ -310,8 +311,9 @@ function renderPreviews() {
 
   ph.style.display = 'none';
   clr.classList.remove('hidden');
+  cnt.classList.remove('hidden');
   const n = selectedFiles.length;
-  cnt.textContent = `${n} ${t(n > 1 ? 'label_images_selected' : 'label_image_selected')}`;
+  cnt.innerHTML = `<i class="bi bi-images"></i> ${n} ${t(n > 1 ? 'label_images_selected' : 'label_image_selected')}`;
 
   selectedFiles.slice(0, 9).forEach((f, i) => {
     const d = document.createElement('div');

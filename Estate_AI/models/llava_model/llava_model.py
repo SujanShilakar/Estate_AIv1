@@ -4,7 +4,8 @@ import requests
 import json
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
-LLAVA_MODEL = "llava"
+LLAVA_MODEL = "llava:latest"
+print("[LLAVA DEBUG] Patched module loaded — num_predict=600 active")
 
 # Google Translate language codes for deep-translator
 GOOGLE_LANG_CODES = {
@@ -76,7 +77,12 @@ def describe_property_image(
         "model": LLAVA_MODEL,
         "prompt": prompt,
         "images": [_encode_image(image_path)],
-        "stream": False
+        "stream": False,
+        "options": {
+            "temperature": 0,
+            "num_predict": 400,
+            "num_ctx": 4096,
+        },
     }
 
     try:
@@ -214,9 +220,19 @@ def _describe_rooms(image_paths: list, all_rooms: list, all_objects: list, user_
         prompt += f" Additional context: {user_prompt}"
 
     encoded = [_encode_image(_convert_to_jpg_if_needed(p)) for p in image_paths]
-    payload = {"model": LLAVA_MODEL, "prompt": prompt, "images": encoded,
-               "stream": False, "options": {"temperature": 0}}
+    payload = {
+        "model": LLAVA_MODEL,
+        "prompt": prompt,
+        "images": encoded,
+        "stream": False,
+        "options": {
+            "temperature": 0,
+            "num_predict": 600,
+            "num_ctx": 4096,
+        },
+    }
 
+    print(f"[LLAVA DEBUG] About to POST with options={payload['options']}")
     raw = ""
     try:
         r = requests.post(OLLAMA_URL, json=payload, timeout=240)
@@ -291,7 +307,17 @@ def _describe_floor_plans(floor_plan_paths: list, user_prompt: str = "", languag
         prompt += f" Additional context: {user_prompt}"
 
     encoded = [_encode_image(_convert_to_jpg_if_needed(p)) for p in floor_plan_paths]
-    payload = {"model": LLAVA_MODEL, "prompt": prompt, "images": encoded, "stream": False, "options": {"temperature": 0}}
+    payload = {
+        "model": LLAVA_MODEL,
+        "prompt": prompt,
+        "images": encoded,
+        "stream": False,
+        "options": {
+            "temperature": 0,
+            "num_predict": 500,
+            "num_ctx": 4096,
+        },
+    }
     try:
         r = requests.post(OLLAMA_URL, json=payload, timeout=180)
         r.raise_for_status()
@@ -375,7 +401,13 @@ def analyse_property_images(
         "model": LLAVA_MODEL,
         "prompt": prompt,
         "images": encoded_images,
-        "stream": False
+        "stream": False,
+        "format": "json",
+        "options": {
+            "temperature": 0,
+            "num_predict": 800,
+            "num_ctx": 4096,
+        },
     }
 
     raw = ""
