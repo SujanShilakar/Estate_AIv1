@@ -16,29 +16,32 @@
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
       <div class="sidebar-brand-logo"><i class="bi bi-houses-fill"></i></div>
-      <div class="sidebar-brand-name">Estate<span class="gold">AI</span></div>
+      <div class="sidebar-brand-name sidebar-label">Estate<span class="gold">AI</span></div>
+      <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="collapseSidebar()" title="Collapse sidebar">
+        <i class="bi bi-chevron-left" id="collapseIcon"></i>
+      </button>
     </div>
 
     <nav class="sidebar-nav">
-      <div class="nav-section-label">Workspace</div>
-      <button class="nav-item active" data-page="dashboard" onclick="goPage('dashboard')">
-        <i class="bi bi-speedometer2"></i> <span data-i18n="nav_dashboard">Dashboard</span>
+      <div class="nav-section-label sidebar-label">Workspace</div>
+      <button class="nav-item active" data-page="dashboard" onclick="goPage('dashboard')" title="Dashboard">
+        <i class="bi bi-speedometer2"></i> <span class="sidebar-label" data-i18n="nav_dashboard">Dashboard</span>
       </button>
-      <button class="nav-item" data-page="generator" onclick="goPage('generator')">
-        <i class="bi bi-stars"></i> <span data-i18n="nav_generator">Generator</span>
+      <button class="nav-item" data-page="generator" onclick="goPage('generator')" title="Generator">
+        <i class="bi bi-stars"></i> <span class="sidebar-label" data-i18n="nav_generator">Generator</span>
       </button>
-      <button class="nav-item" data-page="history" onclick="goPage('history')">
-        <i class="bi bi-clock-history"></i> <span data-i18n="nav_history">History</span>
+      <button class="nav-item" data-page="history" onclick="goPage('history')" title="History">
+        <i class="bi bi-clock-history"></i> <span class="sidebar-label" data-i18n="nav_history">History</span>
       </button>
     </nav>
 
     <div class="sidebar-user">
       <div class="sidebar-avatar" id="userAvatar">A</div>
-      <div class="sidebar-user-info">
+      <div class="sidebar-user-info sidebar-label">
         <div class="sidebar-user-name" id="userName">Loading...</div>
         <div class="sidebar-user-role" id="userRole">Agent</div>
       </div>
-      <button class="sidebar-logout" onclick="logout()" title="Sign out">
+      <button class="sidebar-logout sidebar-label" onclick="logout()" title="Sign out">
         <i class="bi bi-box-arrow-right"></i>
       </button>
     </div>

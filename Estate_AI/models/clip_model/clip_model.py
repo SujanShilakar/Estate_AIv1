@@ -48,21 +48,21 @@ room_display_names = [
 
 text = clip.tokenize(room_labels).to(device)
 
-# ✅ Floor plan detection labels
+# Floor plan detection labels — 3 floor plan, 4 real photo (covers interiors AND exterior)
 floor_plan_labels = [
     "a 2D architectural floor plan drawing with wall lines and room labels",
     "a blueprint or architectural layout drawing viewed from above",
+    "a top-down schematic plan drawing of a building with room outlines",
     "a real photograph of a room interior with furniture",
     "a real photo of a bedroom living room or kitchen",
+    "a real photo of the exterior front facade of a house",
+    "a real outdoor photograph of a house or garden",
 ]
 floor_plan_text = clip.tokenize(floor_plan_labels).to(device)
 
 
 def is_floor_plan_clip(image_path: str) -> bool:
-    """
-    Use CLIP to detect if image is a floor plan by content.
-    Fast and reliable — no LLaVA needed for this task.
-    """
+    """CLIP floor plan detector — requires clear margin over all real-photo labels."""
     try:
         image = preprocess(Image.open(image_path)).unsqueeze(0).to(device)
 
@@ -70,12 +70,14 @@ def is_floor_plan_clip(image_path: str) -> bool:
             logits, _ = model(image, floor_plan_text)
             probs = logits.softmax(dim=-1).cpu().numpy()[0]
 
-        # First 2 labels = floor plan, last 2 = real photo
-        floor_plan_score = probs[0] + probs[1]
-        photo_score = probs[2] + probs[3]
+        # Indices 0-2 = floor plan labels, 3-6 = real photo labels
+        floor_plan_score = float(probs[0] + probs[1] + probs[2])
+        photo_score = float(probs[3] + probs[4] + probs[5] + probs[6])
 
         print(f"[CLIP] Floor plan score: {floor_plan_score:.2f}, Photo score: {photo_score:.2f}")
-        return floor_plan_score > photo_score
+
+        # Require floor plan to clearly dominate — threshold raised to avoid false positives
+        return floor_plan_score > photo_score and (floor_plan_score - photo_score) > 0.20
 
     except Exception as e:
         print(f"[CLIP] Floor plan detection error: {e}")

@@ -4,8 +4,7 @@ import requests
 import json
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
-LLAVA_MODEL = "llava:latest"
-print("[LLAVA DEBUG] Patched module loaded — num_predict=600 active")
+LLAVA_MODEL = "llava"
 
 # Google Translate language codes for deep-translator
 GOOGLE_LANG_CODES = {
@@ -30,9 +29,22 @@ def _translate(text: str, language: str) -> str:
         return text
 
 
-def _encode_image(image_path: str) -> str:
-    with open(image_path, "rb") as f:
-        return base64.b64encode(f.read()).decode("utf-8")
+def _encode_image(image_path: str, max_px: int = 640) -> str:
+    """Encode image as base64, resizing to max_px on the longest side first."""
+    try:
+        from PIL import Image as PILImage
+        import io
+        img = PILImage.open(image_path).convert("RGB")
+        w, h = img.size
+        if max(w, h) > max_px:
+            scale = max_px / max(w, h)
+            img = img.resize((int(w * scale), int(h * scale)), PILImage.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=85)
+        return base64.b64encode(buf.getvalue()).decode("utf-8")
+    except Exception:
+        with open(image_path, "rb") as f:
+            return base64.b64encode(f.read()).decode("utf-8")
 
 
 def _convert_to_jpg_if_needed(image_path: str) -> str:
@@ -77,12 +89,7 @@ def describe_property_image(
         "model": LLAVA_MODEL,
         "prompt": prompt,
         "images": [_encode_image(image_path)],
-        "stream": False,
-        "options": {
-            "temperature": 0,
-            "num_predict": 400,
-            "num_ctx": 4096,
-        },
+        "stream": False
     }
 
     try:
@@ -172,67 +179,48 @@ def _describe_rooms(image_paths: list, all_rooms: list, all_objects: list, user_
     if n == 0:
         return []
 
-    # Build per-image context hints for LLaVA
-    context_parts = []
-    for i, (room, objs) in enumerate(zip(all_rooms, all_objects)):
-        obj_str = ", ".join(objs) if objs else ""
-        line = f"Image {i+1}: {room}"
-        if obj_str:
-            line += f" (objects detected: {obj_str})"
-        context_parts.append(line)
+    # Build per-image room labels only — no YOLO objects (they cause LLaVA to mention/negate them)
+    room_labels = [all_rooms[i].lower() if i < len(all_rooms) else "room" for i in range(n)]
 
     room_guide = (
-        "flooring type and room size, any permanent built-in features (wardrobe, walk-in robe, "
-        "island bench, ensuite, fireplace, overhead cabinetry, built-in shelving) or mention there are none, "
-        "ceiling height and any notable wall or ceiling features, natural light or spatial flow if clearly visible, "
-        "and overall condition and presentation."
+        "flooring type (e.g. timber, tile, carpet), estimated room size (small/medium/large/generous), "
+        "ceiling height if notable, and any permanent built-in features visible (e.g. built-in wardrobe, "
+        "island bench, overhead cabinetry, ensuite, fireplace). "
+        "Do NOT mention moveable furniture, appliances, decor, or the absence of any item."
     )
 
     if n == 1:
-        room_name = all_rooms[0].lower() if all_rooms else "room"
-        obj_str = ", ".join(all_objects[0]) if all_objects and all_objects[0] else ""
+        room_name = room_labels[0]
         prompt = (
-            f"You are a professional property inspector. Look at this {room_name} photo."
-            + (f" Detected objects: {obj_str}." if obj_str else "")
-            + f" Write a single plain paragraph of 4-5 sentences in English starting with 'The {room_name}'. "
-            f"Cover: {room_guide} "
-            f"IMPORTANT: Do NOT number sentences. Do NOT use [1] [2] or any brackets or bullet points. "
-            f"Write flowing prose only. No marketing words."
+            f"You are a professional property inspector. Look at this {room_name} photo. "
+            f"Write a single plain paragraph of 3-4 sentences in English starting with 'The {room_name}'. "
+            f"Describe only: {room_guide} "
+            f"Do NOT number sentences. Do NOT use brackets, bullet points, or hyphens. "
+            f"Write flowing prose only. No marketing adjectives."
         )
     else:
-        room_labels = [all_rooms[i].lower() if i < len(all_rooms) else "room" for i in range(n)]
+        room_list = ", ".join(f"the {r}" for r in room_labels)
         sections = " ".join(
-            f"For image {i+1} (the {room_labels[i]}), begin with 'The {room_labels[i]}'."
+            f"Start the {room_labels[i]} description with 'The {room_labels[i]}'."
             for i in range(n)
         )
         prompt = (
-            f"You are a professional property inspector. I am showing you {n} room photos.\n"
-            f"Detected rooms: {'; '.join(context_parts)}.\n\n"
-            f"Write one continuous paragraph in English. {sections} "
-            f"For each room cover: {room_guide} "
-            f"CRITICAL RULES: "
-            f"Do NOT number sentences. Do NOT write [1] [2] [3] or any numbers in brackets. "
+            f"You are a professional property inspector. I am showing you {n} room photos: {room_list}.\n\n"
+            f"Write one continuous paragraph in English with no headings, no numbering, and no labels. "
+            f"{sections} "
+            f"For each room describe only: {room_guide} "
+            f"CRITICAL: Do NOT write 'Image 1', 'Image 2', or any image numbers or labels anywhere. "
             f"Do NOT use bullet points or hyphens. Write plain flowing prose only. "
-            f"No marketing adjectives. No furniture, curtains, linen, plants, artwork."
+            f"No marketing adjectives. No mention of furniture, appliances, or absent items."
         )
 
     if user_prompt.strip():
         prompt += f" Additional context: {user_prompt}"
 
     encoded = [_encode_image(_convert_to_jpg_if_needed(p)) for p in image_paths]
-    payload = {
-        "model": LLAVA_MODEL,
-        "prompt": prompt,
-        "images": encoded,
-        "stream": False,
-        "options": {
-            "temperature": 0,
-            "num_predict": 600,
-            "num_ctx": 4096,
-        },
-    }
+    payload = {"model": LLAVA_MODEL, "prompt": prompt, "images": encoded,
+               "stream": False, "options": {"temperature": 0}}
 
-    print(f"[LLAVA DEBUG] About to POST with options={payload['options']}")
     raw = ""
     try:
         r = requests.post(OLLAMA_URL, json=payload, timeout=240)
@@ -243,9 +231,7 @@ def _describe_rooms(image_paths: list, all_rooms: list, all_objects: list, user_
         print(f"[LLAVA] _describe_rooms error: {e}")
         return [""] * n
 
-    # Strip numbered patterns LLaVA sometimes adds despite instructions
-    import re
-    raw = re.sub(r'\[\d+\]|\(\d+\)|\d+\.\s+', '', raw).strip()
+    raw = _clean_llava_output(raw)
 
     # For multi-room: LLaVA returns one paragraph — split into per-room chunks by room name
     if n == 1:
@@ -259,6 +245,136 @@ def _describe_rooms(image_paths: list, all_rooms: list, all_objects: list, user_
         descriptions = [_translate(d, language) if d else "" for d in descriptions]
 
     return descriptions
+
+
+def stream_descriptions(
+    image_paths: list,
+    all_rooms: list,
+    fp_paths: list,
+    user_prompt: str = "",
+    language: str = "en",
+):
+    """
+    Generator that streams LLaVA output chunk by chunk.
+    Yields dicts: {"type": "chunk", "text": "..."} during generation,
+                  {"type": "fp_chunk", "text": "..."} for floor plan,
+                  {"type": "done", "descriptions": [...], "fp_description": "..."}
+    """
+    import re
+
+    # ── Build prompt (same logic as _describe_rooms) ──
+    n = len(image_paths)
+    room_labels = [all_rooms[i].lower() if i < len(all_rooms) else "room" for i in range(n)]
+    room_guide = (
+        "flooring type (e.g. timber, tile, carpet), estimated room size (small/medium/large/generous), "
+        "ceiling height if notable, and any permanent built-in features visible (e.g. built-in wardrobe, "
+        "island bench, overhead cabinetry, ensuite, fireplace). "
+        "Do NOT mention moveable furniture, appliances, decor, or the absence of any item."
+    )
+
+    room_raw = ""
+    if image_paths:
+        if n == 1:
+            room_name = room_labels[0]
+            prompt = (
+                f"You are a professional property inspector. Look at this {room_name} photo. "
+                f"Write a single plain paragraph of 3-4 sentences in English starting with 'The {room_name}'. "
+                f"Describe only: {room_guide} "
+                f"Do NOT number sentences. Do NOT use brackets, bullet points, or hyphens. "
+                f"Write flowing prose only. No marketing adjectives."
+            )
+        else:
+            room_list = ", ".join(f"the {r}" for r in room_labels)
+            sections = " ".join(
+                f"Start the {room_labels[i]} description with 'The {room_labels[i]}'."
+                for i in range(n)
+            )
+            prompt = (
+                f"You are a professional property inspector. I am showing you {n} room photos: {room_list}.\n\n"
+                f"Write one continuous paragraph in English with no headings, no numbering, and no labels. "
+                f"{sections} "
+                f"For each room describe only: {room_guide} "
+                f"CRITICAL: Do NOT write 'Image 1', 'Image 2', or any image numbers or labels anywhere. "
+                f"Do NOT use bullet points or hyphens. Write plain flowing prose only. "
+                f"No marketing adjectives. No mention of furniture, appliances, or absent items."
+            )
+        if user_prompt.strip():
+            prompt += f" Additional context: {user_prompt}"
+
+        encoded = [_encode_image(_convert_to_jpg_if_needed(p)) for p in image_paths]
+        payload = {"model": LLAVA_MODEL, "prompt": prompt, "images": encoded,
+                   "stream": True, "options": {"temperature": 0}}
+
+        try:
+            r = requests.post(OLLAMA_URL, json=payload, stream=True, timeout=240)
+            r.raise_for_status()
+            for line in r.iter_lines():
+                if not line:
+                    continue
+                chunk_data = json.loads(line)
+                token = chunk_data.get("response", "")
+                room_raw += token
+                if token:
+                    yield {"type": "chunk", "text": token}
+                if chunk_data.get("done"):
+                    break
+        except Exception as e:
+            print(f"[LLAVA] stream_descriptions room error: {e}")
+
+    room_raw = _clean_llava_output(room_raw)
+
+    # Split into per-image descriptions for analysis extraction
+    if n == 1:
+        descriptions = [room_raw]
+    else:
+        descriptions = _split_paragraph_by_room(room_raw, room_labels)
+    if language != "en":
+        descriptions = [_translate(d, language) for d in descriptions]
+
+    # ── Floor plan streaming ──
+    fp_raw = ""
+    if fp_paths:
+        fp_prompt = (
+            f"You are reading {len(fp_paths)} architectural floor plan drawing(s). "
+            "Look carefully at every labelled room and space on the plan. "
+            "Write a single plain paragraph of 3-6 sentences in English describing the layout. "
+            "Include: total number of rooms, name each space, how rooms connect and flow, "
+            "and any notable layout features. "
+            "Output ONLY plain sentences as one paragraph. "
+            "No bullet points, dashes, hyphens, numbered lists, or headings."
+        )
+        if user_prompt.strip():
+            fp_prompt += f" Additional context: {user_prompt}"
+        fp_encoded = [_encode_image(_convert_to_jpg_if_needed(p)) for p in fp_paths]
+        fp_payload = {"model": LLAVA_MODEL, "prompt": fp_prompt, "images": fp_encoded,
+                      "stream": True, "options": {"temperature": 0}}
+        try:
+            r = requests.post(OLLAMA_URL, json=fp_payload, stream=True, timeout=180)
+            r.raise_for_status()
+            for line in r.iter_lines():
+                if not line:
+                    continue
+                chunk_data = json.loads(line)
+                token = chunk_data.get("response", "")
+                fp_raw += token
+                if token:
+                    yield {"type": "fp_chunk", "text": token}
+                if chunk_data.get("done"):
+                    break
+        except Exception as e:
+            print(f"[LLAVA] stream_descriptions fp error: {e}")
+
+    if language != "en" and fp_raw:
+        fp_raw = _translate(fp_raw, language)
+
+    yield {"type": "done", "descriptions": descriptions, "fp_description": fp_raw}
+
+
+def _clean_llava_output(raw: str) -> str:
+    import re
+    raw = re.sub(r'[Ii]mage\s*\d+\s*[\(\[]?[^)\]]*[\)\]]?\s*:?\s*', '', raw)
+    raw = re.sub(r'\[\d+\]|\(\d+\)|\d+\.\s+', '', raw)
+    return raw.strip()
 
 
 def _split_paragraph_by_room(paragraph: str, room_labels: list) -> list:
@@ -307,17 +423,7 @@ def _describe_floor_plans(floor_plan_paths: list, user_prompt: str = "", languag
         prompt += f" Additional context: {user_prompt}"
 
     encoded = [_encode_image(_convert_to_jpg_if_needed(p)) for p in floor_plan_paths]
-    payload = {
-        "model": LLAVA_MODEL,
-        "prompt": prompt,
-        "images": encoded,
-        "stream": False,
-        "options": {
-            "temperature": 0,
-            "num_predict": 500,
-            "num_ctx": 4096,
-        },
-    }
+    payload = {"model": LLAVA_MODEL, "prompt": prompt, "images": encoded, "stream": False, "options": {"temperature": 0}}
     try:
         r = requests.post(OLLAMA_URL, json=payload, timeout=180)
         r.raise_for_status()
@@ -361,122 +467,114 @@ def describe_property_multi(
     return "\n\n".join(parts) if parts else "No description generated."
 
 
+def _extract_room_analysis(description: str, room: str) -> dict:
+    """
+    Extract size, flooring, and ceiling from an existing LLaVA description.
+    Zero extra LLaVA calls — reads what was already written in the description.
+    """
+    import re
+    text = description.lower()
+
+    # ── Size ──
+    size = "unknown"
+    if re.search(r"\bgenerous\b", text):
+        size = "generous"
+    elif re.search(r"\blarge\b", text):
+        size = "large"
+    elif re.search(r"\bmedium\b", text):
+        size = "medium"
+    elif re.search(r"\bsmall\b", text):
+        size = "small"
+
+    # ── Flooring ──
+    flooring = "unknown"
+    flooring_map = [
+        (r"\btimber\b|\bhardwood\b|\bwood(?:en)?\s+floor", "timber"),
+        (r"\btile[ds]?\b|\bporcelain\b|\bterracotta\b", "tile"),
+        (r"\bcarpet(?:ed)?\b", "carpet"),
+        (r"\bconcrete\b|\bpolished\s+concrete\b", "concrete"),
+        (r"\bvinyl\b|\blaminate\b", "vinyl"),
+        (r"\bstone\b|\bmarble\b|\bgranite\b", "stone"),
+    ]
+    for pattern, label in flooring_map:
+        if re.search(pattern, text):
+            flooring = label
+            break
+
+    # ── Ceiling ──
+    ceiling = "standard"
+    if re.search(r"\bvery\s+high\s+ceiling|double[- ]height\b|void\b", text):
+        ceiling = "very high"
+    elif re.search(r"\bhigh\s+ceiling|generous\s+ceiling|raked\s+ceiling|vaulted\b", text):
+        ceiling = "high"
+
+    # ── Fixtures (built-ins mentioned in description) ──
+    fixtures = []
+    fixture_patterns = [
+        (r"\bbuilt[- ]in\s+wardrobe|BIR\b", "built-in wardrobe"),
+        (r"\bwalk[- ]in\s+(?:robe|wardrobe)|WIR\b", "walk-in robe"),
+        (r"\bisland\s+bench\b", "island bench"),
+        (r"\boverhead\s+cabinet", "overhead cabinetry"),
+        (r"\bfireplace\b", "fireplace"),
+        (r"\bensuite\b", "ensuite"),
+        (r"\bskylight\b", "skylight"),
+        (r"\bbuilt[- ]in\s+shelv", "built-in shelving"),
+    ]
+    for pattern, label in fixture_patterns:
+        if re.search(pattern, text):
+            fixtures.append(label)
+
+    return {"size": size, "flooring": flooring, "ceiling": ceiling, "fixtures": fixtures}
+
+
 def analyse_property_images(
     image_paths: list,
     all_rooms: list,
     all_objects: list,
     language: str = "en",
+    descriptions: list = None,
 ) -> dict:
-    """5-dimension AI property analysis across all images combined."""
+    """
+    Build the 5-dimension property analysis from descriptions LLaVA already wrote.
+    No extra LLaVA calls — extracts size/flooring/ceiling via keyword matching.
+    """
     if not image_paths:
         return {}
 
-    room_context_parts = []
-    for room, objects in zip(all_rooms, all_objects):
+    descriptions = descriptions or [""] * len(image_paths)
+    room_types = []
+    all_fixtures = []
+
+    for room, desc in zip(all_rooms, descriptions):
         if room in ("invalid", "floor plan"):
             continue
-        obj_str = ", ".join(objects) if objects else "none detected"
-        room_context_parts.append(f"{room.title()} (YOLO objects: {obj_str})")
-    context_str = "; ".join(room_context_parts) if room_context_parts else "multiple rooms"
+        data = _extract_room_analysis(desc, room)
+        room_types.append({
+            "room": room,
+            "size": data["size"],
+            "flooring": data["flooring"],
+            "ceiling": data["ceiling"],
+        })
+        all_fixtures.extend(data["fixtures"])
 
-    prompt = (
-        f"You are an expert property analyst. I am showing you {len(image_paths)} interior property image(s). "
-        f"CLIP/YOLO pre-analysis: {context_str}. "
-        f"Analyse all images and return ONLY a valid JSON object in English — no explanation, no markdown, no backticks. "
-        f"The JSON must have exactly these keys:\n"
-        f"  room_types: array of objects, one per visible room, each with keys: "
-        f"    'room', 'size' ('small'|'medium'|'large'|'generous'), 'flooring', 'ceiling' ('standard'|'high'|'very high'|'unknown')\n"
-        f"  interior_condition: object with 'rating' ('poor'|'fair'|'good'|'excellent') and 'notes' (1 short factual sentence)\n"
-        f"  fixtures: array of strings. Empty array if none.\n"
-        f"  architectural_style: object with 'style', 'confidence' ('low'|'medium'|'high'), 'notes' (1 short sentence)\n"
-        f"  luxury_features: array of strings. Empty array if none.\n"
-        f"Return ONLY the JSON object. No other text."
-    )
+    # Condition: infer from YOLO object quality signals (simple heuristic)
+    flat_objects = [o for sublist in all_objects for o in sublist]
+    condition = "good"  # default — LLaVA described it, so it's presentable
 
-    encoded_images = []
-    for img_path in image_paths:
-        encoded_images.append(_encode_image(_convert_to_jpg_if_needed(img_path)))
-
-    payload = {
-        "model": LLAVA_MODEL,
-        "prompt": prompt,
-        "images": encoded_images,
-        "stream": False,
-        "format": "json",
-        "options": {
-            "temperature": 0,
-            "num_predict": 800,
-            "num_ctx": 4096,
+    analysis = {
+        "room_types": room_types,
+        "interior_condition": {
+            "rating": condition,
+            "notes": f"Assessed from {len(room_types)} room(s).",
         },
+        "fixtures": list(dict.fromkeys(all_fixtures)),
+        "architectural_style": {"style": "unknown", "confidence": "low", "notes": ""},
+        "luxury_features": [],
     }
 
-    raw = ""
-    try:
-        response = requests.post(OLLAMA_URL, json=payload, timeout=180)
-        response.raise_for_status()
-        raw = response.json().get("response", "").strip()
-    except requests.exceptions.ConnectionError:
-        print("[LLAVA] Analysis: cannot connect to Ollama — using fallback")
-        return _fallback_analysis(all_rooms, all_objects)
-    except requests.exceptions.Timeout:
-        print("[LLAVA] Analysis: request timed out — using fallback")
-        return _fallback_analysis(all_rooms, all_objects)
-    except Exception as e:
-        print(f"[LLAVA] Analysis request error: {e}")
-        return _fallback_analysis(all_rooms, all_objects)
-
-    # Safe print — avoid Windows encoding crash with non-ASCII chars
-    print(f"[LLAVA] Raw analysis received ({len(raw)} chars)")
-
-    # Strip markdown code fences if present
-    if "```" in raw:
-        parts = raw.split("```")
-        for part in parts:
-            if part.startswith("json"):
-                raw = part[4:].strip()
-                break
-            if "{" in part:
-                raw = part.strip()
-                break
-
-    # Extract outermost JSON object
-    start = raw.find("{")
-    end   = raw.rfind("}") + 1
-    if start != -1 and end > start:
-        raw = raw[start:end]
-    else:
-        print("[LLAVA] No JSON object found in analysis response — using fallback")
-        return _fallback_analysis(all_rooms, all_objects)
-
-    try:
-        analysis = json.loads(raw)
-    except json.JSONDecodeError as e:
-        print(f"[LLAVA] JSON parse error: {e}")
-        return _fallback_analysis(all_rooms, all_objects)
-
-    print(f"[LLAVA] Analysis parsed OK — keys: {list(analysis.keys())}")
-
-    # If LLaVA returned empty room_types, fill from CLIP data
-    if not analysis.get("room_types"):
-        rooms = [r for r in all_rooms if r not in ("invalid", "floor plan")]
-        analysis["room_types"] = [
-            {"room": r, "size": "unknown", "flooring": "unknown", "ceiling": "unknown"}
-            for r in list(dict.fromkeys(rooms))
-        ]
-        print(f"[LLAVA] room_types filled from CLIP inside analysis: {rooms}")
-
-    # Translate free-text fields after parsing (always safe — _translate has its own try/except)
     if language != "en":
-        ic = analysis.get("interior_condition", {})
-        if ic.get("notes"):
-            ic["notes"] = _translate(ic["notes"], language)
-        as_ = analysis.get("architectural_style", {})
-        if as_.get("notes"):
-            as_["notes"] = _translate(as_["notes"], language)
-        if analysis.get("fixtures"):
-            analysis["fixtures"] = [_translate(f, language) for f in analysis["fixtures"]]
-        if analysis.get("luxury_features"):
-            analysis["luxury_features"] = [_translate(f, language) for f in analysis["luxury_features"]]
+        ic = analysis["interior_condition"]
+        ic["notes"] = _translate(ic["notes"], language)
 
     return analysis
 

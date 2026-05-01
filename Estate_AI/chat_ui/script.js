@@ -116,6 +116,22 @@ function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
 }
 
+// ── Collapsible sidebar (desktop) ──
+function collapseSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const layout  = document.querySelector('.app-layout');
+  const isNowCollapsed = sidebar.classList.toggle('collapsed');
+  layout.classList.toggle('sidebar-collapsed', isNowCollapsed);
+  localStorage.setItem('sidebarCollapsed', isNowCollapsed ? '1' : '0');
+}
+
+function restoreSidebarState() {
+  if (localStorage.getItem('sidebarCollapsed') === '1') {
+    document.getElementById('sidebar').classList.add('collapsed');
+    document.querySelector('.app-layout').classList.add('sidebar-collapsed');
+  }
+}
+
 // ═══════ DASHBOARD ═══════
 async function loadDashboard() {
   try {
@@ -286,7 +302,31 @@ function setupDragDrop() {
 }
 
 function handleFiles(newFiles) {
-  Array.from(newFiles)
+  const allFiles = Array.from(newFiles);
+
+  // Auto-fill property details if metadata.json is included
+  const metaFile = allFiles.find(f => f.name === 'metadata.json');
+  if (metaFile) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const meta = JSON.parse(e.target.result);
+        if (meta.suburb)    document.getElementById('suburb').value    = meta.suburb;
+        if (meta.beds)      document.getElementById('beds').value      = meta.beds;
+        if (meta.baths)     document.getElementById('baths').value     = meta.baths;
+        if (meta.parking)   document.getElementById('parking').value   = meta.parking;
+        if (meta.price)     document.getElementById('price').value     = meta.price;
+        if (meta.land_size) document.getElementById('land_size').value = meta.land_size;
+        showToast(`Details loaded: ${meta.address}, ${meta.suburb}`, 'success');
+      } catch (err) {
+        console.warn('metadata.json parse error:', err);
+      }
+    };
+    reader.readAsText(metaFile);
+  }
+
+  // Add only image files to the selection (ignore metadata.json)
+  allFiles
     .filter(f => f.type.startsWith('image/'))
     .slice(0, 10 - selectedFiles.length)
     .forEach(f => selectedFiles.push(f));
@@ -793,6 +833,7 @@ function formatRelative(iso) {
 
 // ═══════ INIT ═══════
 document.addEventListener('DOMContentLoaded', async () => {
+  restoreSidebarState();
   const ok = await checkAuth();
   if (!ok) return;
   setLanguage(currentLang);

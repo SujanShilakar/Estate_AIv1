@@ -126,10 +126,19 @@ def upload():
     lang   = request.form.get("lang", "en")
     prompt = request.form.get("prompt", "")
 
-    results     = []
-    all_rooms   = []
-    all_objects = []
-    saved_paths = []
+    results      = []
+    seen_hashes  = set()   # duplicate image detection
+    seen_rooms   = set()   # duplicate room type detection
+
+    # These are built in-loop so indices always stay aligned with results
+    valid_indices      = []   # indices into results for accepted room photos
+    floor_plan_indices = []   # indices into results for floor plans
+    valid_paths        = []
+    valid_rooms        = []
+    valid_objects      = []
+    fp_paths           = []
+
+    import hashlib
 
     for file in files:
         if file.filename == "":
@@ -137,11 +146,29 @@ def upload():
 
         filepath = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(filepath)
-        saved_paths.append(filepath)
+
+        # ── Duplicate image check (hash file bytes) ──
+        file_hash = hashlib.md5(open(filepath, "rb").read()).hexdigest()
+        if file_hash in seen_hashes:
+            print(f"[DUPLICATE IMAGE] {file.filename} — rejected")
+            results.append({
+                "filename":      file.filename,
+                "objects":       [],
+                "room":          "duplicate",
+                "image_url":     f"/uploads/{file.filename}",
+                "description":   "Duplicate image removed.",
+                "is_invalid":    True,
+                "is_floor_plan": False,
+                "duplicate":     True,
+            })
+            continue
+        seen_hashes.add(file_hash)
 
         # Step 1: Floor plan check
         if is_floor_plan(filepath):
             print(f"[FLOOR PLAN] {file.filename}")
+            floor_plan_indices.append(len(results))
+            fp_paths.append(filepath)
             results.append({
                 "filename":      file.filename,
                 "objects":       [],
@@ -151,19 +178,35 @@ def upload():
                 "is_invalid":    False,
                 "is_floor_plan": True
             })
-            all_rooms.append("floor plan")
-            all_objects.append([])
             continue
 
         # Step 2: CLIP room classification
         room = detect_room_clip(filepath)
         print(f"[CLIP] Room: {room}")
 
+        # ── Duplicate room type check ──
+        if room in seen_rooms and room not in ("Unknown", "Room"):
+            print(f"[DUPLICATE ROOM] {file.filename} already have a {room} — rejected")
+            results.append({
+                "filename":      file.filename,
+                "objects":       [],
+                "room":          room,
+                "image_url":     f"/uploads/{file.filename}",
+                "description":   f"A {room} image was already included.",
+                "is_invalid":    True,
+                "is_floor_plan": False,
+                "duplicate":     True,
+            })
+            continue
+        seen_rooms.add(room)
+
         # Step 3: YOLO object detection
         try:
             objects = detect_objects(filepath)
-            all_rooms.append(room)
-            all_objects.append(objects)
+            valid_indices.append(len(results))
+            valid_paths.append(filepath)
+            valid_rooms.append(room)
+            valid_objects.append(objects)
             results.append({
                 "filename":      file.filename,
                 "objects":       objects,
@@ -175,6 +218,10 @@ def upload():
             })
         except Exception as e:
             print(f"[ERROR] {file.filename}: {e}")
+            valid_indices.append(len(results))
+            valid_paths.append(filepath)
+            valid_rooms.append("Unknown")
+            valid_objects.append([])
             results.append({
                 "filename":      file.filename,
                 "objects":       [],
@@ -185,20 +232,11 @@ def upload():
                 "is_floor_plan": False,
                 "error":         str(e)
             })
-            all_rooms.append("Unknown")
-            all_objects.append([])
 
     # Step 4: Separate LLaVA calls
     property_analysis      = {}
     room_description       = ""
     floor_plan_description = ""
-
-    valid_indices      = [i for i, r in enumerate(results) if not r["is_invalid"] and not r["is_floor_plan"]]
-    floor_plan_indices = [i for i, r in enumerate(results) if r["is_floor_plan"]]
-    valid_paths   = [saved_paths[i] for i in valid_indices]
-    valid_rooms   = [all_rooms[i]   for i in valid_indices]
-    valid_objects = [all_objects[i] for i in valid_indices]
-    fp_paths      = [saved_paths[i] for i in floor_plan_indices]
 
     if USE_LLAVA:
         if valid_paths:
@@ -238,7 +276,8 @@ def upload():
                     image_paths=valid_paths,
                     all_rooms=valid_rooms,
                     all_objects=valid_objects,
-                    language=lang
+                    language=lang,
+                    descriptions=individual_descs,
                 )
                 print(f"[LLAVA] Analysis complete")
             except Exception as e:
@@ -255,9 +294,9 @@ def upload():
                 for r in seen
             ]
 
-    flat_objects   = [obj for sublist in all_objects for obj in sublist]
+    flat_objects   = [obj for sublist in valid_objects for obj in sublist]
     unique_objects = list(dict.fromkeys(flat_objects))
-    primary_room   = next((r for r in all_rooms if r not in ["invalid", "floor plan"]), "Property")
+    primary_room   = next((r for r in valid_rooms if r not in ["invalid", "floor plan"]), "Property")
 
     listing = generate_listing(room_type=primary_room, objects=unique_objects, details=details)
     ads = generate_facebook_ads(room_type=primary_room, objects=unique_objects, details=details)
