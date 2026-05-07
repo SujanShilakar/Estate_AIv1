@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Estate AI — Property Marketing Made Simple</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --forest:#0b1f12;--forest2:#132b1a;--forest3:#1a3a22;
+  --green:#16a34a;--green2:#22c55e;
+  --gold:#d4a843;--gold2:#f0c96a;
+  --ivory:#faf7f0;--ivory2:#f3ede0;
+  --ink:#0f1a0a;--ink2:#2d3a28;--muted:#6b7c63;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'DM Sans',sans-serif;background:var(--ivory);color:var(--ink);overflow-x:hidden;}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:200;padding:18px 48px;display:flex;align-items:center;justify-content:space-between;background:transparent;transition:all 0.4s;}
+nav.scrolled{background:rgba(11,31,18,0.96);backdrop-filter:blur(24px);padding:12px 48px;border-bottom:1px solid rgba(255,255,255,0.07);}
+.nav-brand{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.nav-logo{width:36px;height:36px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;}
+.nav-name{font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:700;color:#fff;}
+.nav-name span{color:var(--gold);}
+.nav-links{display:flex;gap:4px;}
+.nav-link{color:rgba(255,255,255,0.55);text-decoration:none;font-size:0.84rem;font-weight:500;padding:7px 13px;border-radius:6px;transition:color 0.2s;}
+.nav-link:hover{color:#fff;}
+.nav-ctas{display:flex;gap:8px;align-items:center;}
+.btn-outline-nav{color:rgba(255,255,255,0.55);padding:8px 16px;border-radius:7px;font-size:0.82rem;font-weight:500;text-decoration:none;border:1px solid rgba(255,255,255,0.18);transition:all 0.2s;}
+.btn-outline-nav:hover{color:#fff;border-color:rgba(255,255,255,0.35);}
+.btn-green-nav{background:var(--green);color:#fff;padding:9px 20px;border-radius:8px;font-size:0.84rem;font-weight:600;text-decoration:none;display:flex;align-items:center;gap:6px;transition:all 0.2s;box-shadow:0 2px 12px rgba(22,163,74,0.3);}
+.btn-green-nav:hover{background:#15803d;color:#fff;transform:translateY(-1px);}
+
+/* HERO */
+.hero{min-height:100vh;background:radial-gradient(ellipse at 15% 60%,rgba(22,163,74,0.14) 0%,transparent 45%),radial-gradient(ellipse at 85% 20%,rgba(212,168,67,0.09) 0%,transparent 40%),linear-gradient(155deg,#081510 0%,#0f2419 50%,#0b1f12 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:130px 48px 100px;position:relative;overflow:hidden;text-align:center;}
+.hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(22,163,74,0.035) 1px,transparent 1px),linear-gradient(90deg,rgba(22,163,74,0.035) 1px,transparent 1px);background-size:56px 56px;animation:gridMove 25s linear infinite;}
+@keyframes gridMove{0%{transform:translate(0,0);}100%{transform:translate(56px,56px);}}
+.orb{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none;}
+.orb1{width:500px;height:500px;background:rgba(22,163,74,0.1);top:-150px;left:-150px;animation:fl1 9s ease-in-out infinite;}
+.orb2{width:350px;height:350px;background:rgba(212,168,67,0.07);bottom:-80px;right:-80px;animation:fl2 12s ease-in-out infinite;}
+.orb3{width:250px;height:250px;background:rgba(22,163,74,0.07);top:45%;right:12%;animation:fl3 8s ease-in-out infinite;}
+@keyframes fl1{0%,100%{transform:translate(0,0);}50%{transform:translate(50px,35px);}}
+@keyframes fl2{0%,100%{transform:translate(0,0);}50%{transform:translate(-35px,-25px);}}
+@keyframes fl3{0%,100%{transform:translate(0,0);}50%{transform:translate(25px,-35px);}}
+.particles{position:absolute;inset:0;overflow:hidden;pointer-events:none;}
+.particle{position:absolute;width:2px;height:2px;background:rgba(255,255,255,0.25);border-radius:50%;animation:pfloat linear infinite;}
+@keyframes pfloat{0%{transform:translateY(110vh);opacity:0;}10%{opacity:1;}90%{opacity:1;}100%{transform:translateY(-80px) translateX(40px);opacity:0;}}
+.hero-content{position:relative;z-index:10;}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.12em;color:var(--gold);background:rgba(212,168,67,0.1);border:1px solid rgba(212,168,67,0.22);padding:6px 16px;border-radius:20px;margin-bottom:32px;opacity:0;animation:fadeUp 0.8s 0.2s forwards;}
+.bdot{width:6px;height:6px;background:var(--gold);border-radius:50%;animation:bpulse 2s infinite;}
+@keyframes bpulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.4;transform:scale(1.4);}}
+.hero-title{font-family:'Cormorant Garamond',serif;font-size:clamp(3rem,7vw,5.8rem);font-weight:700;color:#fff;line-height:1.06;letter-spacing:-0.02em;margin-bottom:26px;max-width:860px;opacity:0;animation:fadeUp 0.8s 0.4s forwards;}
+.hero-title em{font-style:italic;color:var(--gold);position:relative;}
+.hero-title em::after{content:'';position:absolute;bottom:-3px;left:0;right:0;height:2px;background:var(--gold);opacity:0.35;border-radius:2px;}
+.hero-sub{font-size:1.08rem;color:rgba(255,255,255,0.48);max-width:560px;line-height:1.75;margin:0 auto 48px;opacity:0;animation:fadeUp 0.8s 0.6s forwards;}
+.hero-ctas{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:72px;opacity:0;animation:fadeUp 0.8s 0.8s forwards;}
+.cta-main{background:var(--green);color:#fff;padding:15px 34px;border-radius:10px;font-size:0.97rem;font-weight:600;text-decoration:none;display:flex;align-items:center;gap:10px;transition:all 0.25s;box-shadow:0 4px 24px rgba(22,163,74,0.38);animation:glowP 3s 2s ease infinite;}
+@keyframes glowP{0%,100%{box-shadow:0 4px 24px rgba(22,163,74,0.38),0 0 0 0 rgba(22,163,74,0.2);}50%{box-shadow:0 4px 24px rgba(22,163,74,0.38),0 0 0 10px rgba(22,163,74,0);}}
+.cta-main:hover{background:#15803d;color:#fff;transform:translateY(-2px);box-shadow:0 8px 32px rgba(22,163,74,0.5);}
+.cta-ghost{color:rgba(255,255,255,0.68);padding:15px 28px;border-radius:10px;font-size:0.93rem;font-weight:500;text-decoration:none;border:1px solid rgba(255,255,255,0.18);display:flex;align-items:center;gap:8px;transition:all 0.25s;}
+.cta-ghost:hover{color:#fff;border-color:rgba(255,255,255,0.38);background:rgba(255,255,255,0.04);}
+.hero-stats{display:flex;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;overflow:hidden;backdrop-filter:blur(12px);opacity:0;animation:fadeUp 0.8s 1s forwards;}
+.hstat{padding:20px 38px;text-align:center;border-right:1px solid rgba(255,255,255,0.07);transition:background 0.2s;}
+.hstat:last-child{border-right:none;}
+.hstat:hover{background:rgba(255,255,255,0.04);}
+.hstat-v{font-family:'Cormorant Garamond',serif;font-size:2.1rem;font-weight:700;color:var(--gold);display:block;line-height:1;margin-bottom:5px;}
+.hstat-l{font-size:0.71rem;color:rgba(255,255,255,0.38);letter-spacing:0.04em;}
+.scroll-cue{position:absolute;bottom:34px;left:50%;transform:translateX(-50%);z-index:10;display:flex;flex-direction:column;align-items:center;gap:5px;color:rgba(255,255,255,0.18);font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;opacity:0;animation:fadeUp 1s 1.5s forwards,scrlB 2.5s 2.8s ease-in-out infinite;}
+@keyframes scrlB{0%,100%{transform:translateX(-50%) translateY(0);}50%{transform:translateX(-50%) translateY(8px);}}
+
+/* MARQUEE */
+.marquee-strip{background:var(--forest2);border-top:1px solid rgba(255,255,255,0.05);border-bottom:1px solid rgba(255,255,255,0.05);padding:13px 0;overflow:hidden;white-space:nowrap;}
+.mq-track{display:inline-flex;animation:mq 28s linear infinite;}
+.mq-item{display:inline-flex;align-items:center;gap:9px;padding:0 36px;font-size:0.79rem;font-weight:500;color:rgba(255,255,255,0.32);border-right:1px solid rgba(255,255,255,0.07);}
+.mq-item i{color:var(--green);font-size:13px;}
+@keyframes mq{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+
+/* SECTIONS */
+.section{padding:96px 48px;}
+.section-inner{max-width:1100px;margin:0 auto;}
+.eyebrow{font-size:0.71rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:var(--green);margin-bottom:11px;}
+.sh{font-family:'Cormorant Garamond',serif;font-size:clamp(2rem,4vw,2.9rem);font-weight:700;color:var(--ink);line-height:1.15;letter-spacing:-0.01em;margin-bottom:13px;}
+.sp{font-size:0.98rem;color:var(--muted);max-width:510px;line-height:1.7;}
+
+/* HOW */
+.how-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--ivory2);border-radius:16px;overflow:hidden;border:1px solid var(--ivory2);margin-top:56px;}
+.how-card{background:var(--ivory);padding:44px 34px;position:relative;transition:background 0.25s;}
+.how-card:hover{background:#fff;}
+.how-line{position:absolute;top:0;left:0;right:0;height:3px;background:transparent;transition:background 0.3s;}
+.how-card:hover .how-line{background:var(--green);}
+.how-num{font-family:'Cormorant Garamond',serif;font-size:4rem;font-weight:700;color:rgba(0,0,0,0.04);line-height:1;margin-bottom:22px;display:block;transition:color 0.3s;}
+.how-card:hover .how-num{color:rgba(22,163,74,0.07);}
+.how-icon{width:50px;height:50px;background:linear-gradient(135deg,#dcfce7,#bbf7d0);border-radius:13px;display:flex;align-items:center;justify-content:center;color:var(--green);font-size:23px;margin-bottom:18px;transition:transform 0.3s;}
+.how-card:hover .how-icon{transform:scale(1.08) rotate(-3deg);}
+.how-title{font-size:1.02rem;font-weight:600;color:var(--ink);margin-bottom:10px;}
+.how-desc{font-size:0.86rem;color:var(--muted);line-height:1.7;}
+
+/* BENEFITS */
+.ben-section{background:var(--forest);position:relative;overflow:hidden;}
+.ben-section::before{content:'';position:absolute;top:-300px;right:-200px;width:700px;height:700px;background:radial-gradient(circle,rgba(22,163,74,0.07) 0%,transparent 70%);border-radius:50%;}
+.ben-section .eyebrow{color:var(--gold);}
+.ben-section .sh{color:#fff;}
+.ben-section .sp{color:rgba(255,255,255,0.42);}
+.ben-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:56px;}
+.ben-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:30px;transition:all 0.3s;position:relative;overflow:hidden;}
+.ben-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--green);transform:scaleX(0);transform-origin:left;transition:transform 0.3s;}
+.ben-card:hover{background:rgba(255,255,255,0.06);border-color:rgba(22,163,74,0.2);transform:translateY(-4px);}
+.ben-card:hover::before{transform:scaleX(1);}
+.ben-icon{width:46px;height:46px;background:rgba(22,163,74,0.12);border-radius:11px;display:flex;align-items:center;justify-content:center;color:#4ade80;font-size:21px;margin-bottom:18px;transition:transform 0.3s;}
+.ben-card:hover .ben-icon{transform:scale(1.1);}
+.ben-title{font-size:0.95rem;font-weight:600;color:#fff;margin-bottom:7px;}
+.ben-desc{font-size:0.82rem;color:rgba(255,255,255,0.4);line-height:1.65;}
+
+/* CONTENT TYPES */
+.ct-section{background:var(--ivory2);}
+.ct-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:56px;}
+.ct-card{background:#fff;border-radius:14px;padding:34px;border:1px solid rgba(0,0,0,0.05);transition:all 0.3s;display:flex;gap:18px;}
+.ct-card:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,0.07);border-color:rgba(22,163,74,0.18);}
+.ct-icon{width:54px;height:54px;flex-shrink:0;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:25px;}
+.ct-card:nth-child(1) .ct-icon{background:#dcfce7;color:var(--green);}
+.ct-card:nth-child(2) .ct-icon{background:#dbeafe;color:#2563eb;}
+.ct-card:nth-child(3) .ct-icon{background:#fce7f3;color:#9d174d;}
+.ct-card:nth-child(4) .ct-icon{background:#fef3c7;color:#92400e;}
+.ct-title{font-size:0.97rem;font-weight:600;color:var(--ink);margin-bottom:6px;}
+.ct-desc{font-size:0.83rem;color:var(--muted);line-height:1.65;}
+.ct-tag{display:inline-block;font-size:0.67rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;background:var(--ivory2);color:var(--muted);padding:3px 9px;border-radius:10px;margin-top:10px;}
+
+/* PORTALS */
+.portal-section{background:var(--ivory);}
+.portal-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:48px;}
+.pc{border-radius:18px;padding:46px;text-decoration:none;display:block;transition:transform 0.3s;position:relative;overflow:hidden;}
+.pc:hover{transform:translateY(-4px);}
+.pc.agent{background:linear-gradient(145deg,#0f2419,#1a3a22);border:1px solid rgba(22,163,74,0.18);}
+.pc.admin{background:linear-gradient(145deg,#1a1025,#2a1a3e);border:1px solid rgba(139,92,246,0.18);}
+.pc.agent:hover{box-shadow:0 20px 60px rgba(22,163,74,0.18);}
+.pc.admin:hover{box-shadow:0 20px 60px rgba(139,92,246,0.14);}
+.pc::after{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:linear-gradient(45deg,transparent 40%,rgba(255,255,255,0.025) 50%,transparent 60%);transform:translateX(-100%);transition:transform 0.6s;}
+.pc:hover::after{transform:translateX(100%);}
+.pc-badge{display:inline-flex;align-items:center;gap:6px;font-size:0.69rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;padding:5px 12px;border-radius:20px;margin-bottom:22px;}
+.pc.agent .pc-badge{background:rgba(22,163,74,0.16);color:#4ade80;border:1px solid rgba(22,163,74,0.22);}
+.pc.admin .pc-badge{background:rgba(139,92,246,0.16);color:#a78bfa;border:1px solid rgba(139,92,246,0.22);}
+.pc-h{font-family:'Cormorant Garamond',serif;font-size:1.85rem;font-weight:700;color:#fff;line-height:1.2;margin-bottom:11px;}
+.pc-p{font-size:0.86rem;color:rgba(255,255,255,0.42);line-height:1.65;margin-bottom:26px;}
+.pc-list{display:flex;flex-direction:column;gap:8px;margin-bottom:34px;}
+.pc-item{display:flex;align-items:center;gap:9px;font-size:0.83rem;color:rgba(255,255,255,0.58);}
+.pc.agent .pc-item i{color:#4ade80;}
+.pc.admin .pc-item i{color:#a78bfa;}
+.pc-btn{display:inline-flex;align-items:center;gap:8px;font-size:0.87rem;font-weight:600;padding:11px 24px;border-radius:9px;text-decoration:none;transition:all 0.2s;}
+.pc.agent .pc-btn{background:var(--green);color:#fff;}
+.pc.agent .pc-btn:hover{background:#15803d;color:#fff;}
+.pc.admin .pc-btn{background:rgba(139,92,246,0.16);color:#a78bfa;border:1px solid rgba(139,92,246,0.28);}
+.pc.admin .pc-btn:hover{background:rgba(139,92,246,0.28);color:#c4b5fd;}
+
+/* TRUST */
+.trust-bar{background:var(--forest2);padding:44px;border-top:1px solid rgba(255,255,255,0.05);}
+.trust-inner{max-width:880px;margin:0 auto;text-align:center;}
+.trust-lbl{font-size:0.69rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:rgba(255,255,255,0.22);margin-bottom:26px;}
+.trust-pills{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;}
+.trust-pill{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:24px;padding:9px 18px;font-size:0.81rem;font-weight:500;color:rgba(255,255,255,0.45);transition:all 0.2s;}
+.trust-pill:hover{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.72);border-color:rgba(255,255,255,0.12);}
+.trust-pill i{color:var(--green);font-size:13px;}
+
+/* FOOTER */
+footer{background:var(--forest);padding:34px 48px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;border-top:1px solid rgba(255,255,255,0.05);}
+.fbrand{font-family:'Cormorant Garamond',serif;font-size:1.2rem;font-weight:700;color:#fff;}
+.fbrand span{color:var(--gold);}
+.fcopy{font-size:0.72rem;color:rgba(255,255,255,0.22);}
+.flinks{display:flex;gap:18px;}
+.flink{font-size:0.77rem;color:rgba(255,255,255,0.32);text-decoration:none;transition:color 0.2s;}
+.flink:hover{color:rgba(255,255,255,0.65);}
+
+/* ANIMATIONS */
+@keyframes fadeUp{from{opacity:0;transform:translateY(26px);}to{opacity:1;transform:translateY(0);}}
+.reveal{opacity:0;transform:translateY(30px);transition:opacity 0.7s ease,transform 0.7s ease;}
+.reveal.visible{opacity:1;transform:translateY(0);}
+.d1{transition-delay:0.1s;}.d2{transition-delay:0.2s;}.d3{transition-delay:0.3s;}
+
+/* RESPONSIVE */
+@media(max-width:960px){
+  nav{padding:14px 24px;}nav.scrolled{padding:10px 24px;}
+  .nav-links{display:none;}
+  .hero{padding:110px 24px 80px;}
+  .hero-stats{flex-direction:column;}
+  .hstat{border-right:none;border-bottom:1px solid rgba(255,255,255,0.07);padding:16px 30px;}
+  .hstat:last-child{border-bottom:none;}
+  .section{padding:64px 24px;}
+  .how-grid,.ben-grid,.portal-grid{grid-template-columns:1fr;}
+  .ct-grid{grid-template-columns:1fr;}
+  footer{flex-direction:column;text-align:center;padding:26px 24px;}
+  .trust-bar{padding:32px 24px;}
+}
+@media(max-width:600px){
+  .hero-ctas{flex-direction:column;width:100%;}
+  .cta-main,.cta-ghost{justify-content:center;width:100%;}
+  .pc{padding:30px 22px;}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="nav">
+  <a href="/" class="nav-brand">
+    <div class="nav-logo"><i class="bi bi-houses-fill"></i></div>
+    <div class="nav-name">Estate<span>AI</span></div>
+  </a>
+  <div class="nav-links">
+    <a href="#how" class="nav-link">How it works</a>
+    <a href="#benefits" class="nav-link">Benefits</a>
+    <a href="#content" class="nav-link">What you get</a>
+    <a href="#portals" class="nav-link">Get started</a>
+  </div>
+  <div class="nav-ctas">
+    <a href="/admin-login" class="btn-outline-nav"><i class="bi bi-shield-lock"></i> Admin</a>
+    <a href="/login" class="btn-green-nav"><i class="bi bi-person-badge"></i> Agent Login</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+  <div class="particles" id="particles"></div>
+  <div class="hero-content">
+    <div class="hero-badge"><div class="bdot"></div>Now live · Adelaide Real Estate</div>
+    <h1 class="hero-title">Write Listings Faster<br/>With <em>AI That Sees</em><br/>Your Property</h1>
+    <p class="hero-sub">Upload your property photos, add a few details, and get a professional listing and social media ads written for you — in under 60 seconds.</p>
+    <div class="hero-ctas">
+      <a href="/login" class="cta-main"><i class="bi bi-person-badge-fill"></i> Start Generating Now <i class="bi bi-arrow-right"></i></a>
+      <a href="/register" class="cta-ghost"><i class="bi bi-plus-circle"></i> Create free account</a>
+    </div>
+    <div class="hero-stats">
+      <div class="hstat"><span class="hstat-v">5×</span><span class="hstat-l">Faster than writing manually</span></div>
+      <div class="hstat"><span class="hstat-v">&lt;60s</span><span class="hstat-l">From photos to listing</span></div>
+      <div class="hstat"><span class="hstat-v">4</span><span class="hstat-l">Writing tones available</span></div>
+      <div class="hstat"><span class="hstat-v">100%</span><span class="hstat-l">Compliance checked</span></div>
+    </div>
+  </div>
+  <div class="scroll-cue"><span>Scroll to explore</span><i class="bi bi-chevron-compact-down" style="font-size:15px;"></i></div>
+</section>
+
+<!-- MARQUEE -->
+<div class="marquee-strip">
+  <div class="mq-track">
+    <span class="mq-item"><i class="bi bi-check-circle-fill"></i>Realestate.com.au ready</span>
+    <span class="mq-item"><i class="bi bi-check-circle-fill"></i>Facebook & Instagram ads</span>
+    <span class="mq-item"><i class="bi bi-check-circle-fill"></i>Compliance checked</span>
+    <span class="mq-item"><i class="bi bi-check-circle-fill"></i>4 writing tones</span>
+    <span class="mq-item"><i class="bi bi-check-circle-fill"></i>4 languages supported</span>
+    <span class="mq-item"><i class="bi bi-check-circle-fill"></i>Instant generation</span>
+    <span class="mq-item"><i class="bi bi-check-circle-fill"></i>Generation history saved</span>
+    <span class="mq-item"><i class="bi bi-check-circle-fill"></i>Export ready content</span>
+    <span class="mq-item"><i class="bi bi-check-circle-fill"></i>Realestate.com.au ready</span>
+    <span class="mq-item"><i class="bi bi-check-circle-fill"></i>Facebook & Instagram ads</span>
+    <span class="mq-item"><i class="bi bi-check-circle-fill"></i>Compliance checked</span>
+    <span class="mq-item"><i class="bi bi-check-circle-fill"></i>4 writing tones</span>
+    <span class="mq-item"><i class="bi bi-check-circle-fill"></i>4 languages supported</span>
+    <span class="mq-item"><i class="bi bi-check-circle-fill"></i>Instant generation</span>
+    <span class="mq-item"><i class="bi bi-check-circle-fill"></i>Generation history saved</span>
+    <span class="mq-item"><i class="bi bi-check-circle-fill"></i>Export ready content</span>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how" style="background:var(--ivory);">
+  <div class="section-inner">
+    <div class="reveal"><p class="eyebrow">How it works</p><h2 class="sh">Three steps to a published listing</h2><p class="sp">No copywriting experience needed. The AI does the heavy lifting — you just review and publish.</p></div>
+    <div class="how-grid">
+      <div class="how-card reveal d1">
+        <div class="how-line"></div>
+        <span class="how-num">01</span>
+        <div class="how-icon"><i class="bi bi-cloud-arrow-up-fill"></i></div>
+        <div class="how-title">Upload your property photos</div>
+        <p class="how-desc">Drag and drop up to 10 photos — bedrooms, kitchen, living areas, backyard, exterior. The AI scans every image automatically to understand what it's looking at.</p>
+      </div>
+      <div class="how-card reveal d2">
+        <div class="how-line"></div>
+        <span class="how-num">02</span>
+        <div class="how-icon"><i class="bi bi-sliders"></i></div>
+        <div class="how-title">Add the basics</div>
+        <p class="how-desc">Enter bedrooms, bathrooms, suburb, land size, and price. Choose a writing tone — Professional, Luxury, Family, or Investment. That's all we need.</p>
+      </div>
+      <div class="how-card reveal d3">
+        <div class="how-line"></div>
+        <span class="how-num">03</span>
+        <div class="how-icon"><i class="bi bi-stars"></i></div>
+        <div class="how-title">Get your content</div>
+        <p class="how-desc">Receive a full listing description, social media ad copy, and compliance-checked content — all ready to copy directly into your platform of choice.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BENEFITS -->
+<section class="section ben-section" id="benefits">
+  <div class="section-inner" style="position:relative;z-index:1;">
+    <div class="reveal"><p class="eyebrow">Why agents love it</p><h2 class="sh">Everything you need,<br/>nothing you don't</h2><p class="sp">Built for Adelaide real estate agents who need professional content fast — without hiring a copywriter.</p></div>
+    <div class="ben-grid">
+      <div class="ben-card reveal d1"><div class="ben-icon"><i class="bi bi-lightning-charge-fill"></i></div><div class="ben-title">Ready in under 60 seconds</div><p class="ben-desc">What used to take 2–3 hours of writing is done before your next coffee. Upload, fill in the details, click generate.</p></div>
+      <div class="ben-card reveal d2"><div class="ben-icon"><i class="bi bi-shield-check-fill"></i></div><div class="ben-title">Compliance built in</div><p class="ben-desc">Every listing is automatically checked against Australian real estate advertising guidelines. No price baiting, no misleading claims.</p></div>
+      <div class="ben-card reveal d3"><div class="ben-icon"><i class="bi bi-eye-fill"></i></div><div class="ben-title">Reads your photos like a human</div><p class="ben-desc">The AI actually looks at your images — identifying rooms, features, and condition — to write descriptions that match what's really there.</p></div>
+      <div class="ben-card reveal d1"><div class="ben-icon"><i class="bi bi-palette2"></i></div><div class="ben-title">Four writing tones</div><p class="ben-desc">Professional, Luxury, Family, or Investment-focused. The same property described four completely different ways for different buyer audiences.</p></div>
+      <div class="ben-card reveal d2"><div class="ben-icon"><i class="bi bi-translate"></i></div><div class="ben-title">Reach more buyers</div><p class="ben-desc">Generate your listing in English, Hindi, Chinese, or Japanese — helping you connect with Adelaide's multicultural property market.</p></div>
+      <div class="ben-card reveal d3"><div class="ben-icon"><i class="bi bi-clock-history"></i></div><div class="ben-title">Every listing saved</div><p class="ben-desc">Your full generation history is saved to your account. Edit, reuse, and revisit any previous listing without starting from scratch.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- WHAT YOU GET -->
+<section class="section ct-section" id="content">
+  <div class="section-inner">
+    <div class="reveal"><p class="eyebrow">What you get</p><h2 class="sh">One upload. Four pieces of content.</h2><p class="sp">Everything you need to market a property — generated from a single set of photos.</p></div>
+    <div class="ct-grid">
+      <div class="ct-card reveal d1"><div class="ct-icon"><i class="bi bi-house-door-fill"></i></div><div><div class="ct-title">Realestate.com.au Listing</div><p class="ct-desc">A 150–300 word professional property description with suburb highlights, lifestyle appeal, and buyer-friendly language. Copy and paste straight into your listing.</p><span class="ct-tag">150–300 words · SEO ready</span></div></div>
+      <div class="ct-card reveal d2"><div class="ct-icon"><i class="bi bi-megaphone-fill"></i></div><div><div class="ct-title">Facebook & Instagram Ads</div><p class="ct-desc">Two short, punchy ad variations with hashtags and a clear call to action. Ready to paste into your social media page or ad campaign.</p><span class="ct-tag">2 variations · Hashtags included</span></div></div>
+      <div class="ct-card reveal d1"><div class="ct-icon"><i class="bi bi-card-checklist"></i></div><div><div class="ct-title">Room-by-Room Notes</div><p class="ct-desc">Detailed factual descriptions for each room — written from what the AI sees in your actual photos. Covers flooring, fixtures, size, natural light, and condition.</p><span class="ct-tag">Photo-accurate descriptions</span></div></div>
+      <div class="ct-card reveal d2"><div class="ct-icon"><i class="bi bi-file-earmark-check-fill"></i></div><div><div class="ct-title">Compliance Report</div><p class="ct-desc">Automatic check against Australian real estate advertising guidelines. Any potential issues are flagged before you publish — keeping you legally protected.</p><span class="ct-tag">Australian guidelines · Auto-checked</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- PORTALS -->
+<section class="section portal-section" id="portals">
+  <div class="section-inner">
+    <div class="reveal" style="text-align:center;"><p class="eyebrow" style="text-align:center;">Get started today</p><h2 class="sh" style="text-align:center;">Choose your access</h2><p class="sp" style="margin:0 auto;text-align:center;">Two separate portals for agents and agency administrators.</p></div>
+    <div class="portal-grid reveal" style="margin-top:46px;">
+      <a href="/login" class="pc agent">
+        <div class="pc-badge"><i class="bi bi-person-badge-fill"></i> Agent Portal</div>
+        <div class="pc-h">I'm a real estate<br/>agent</div>
+        <p class="pc-p">Log in to start generating listing descriptions and social media ads from your property photos.</p>
+        <div class="pc-list">
+          <div class="pc-item"><i class="bi bi-check-circle-fill"></i> Generate listings in under 60 seconds</div>
+          <div class="pc-item"><i class="bi bi-check-circle-fill"></i> Facebook & Instagram ad copy</div>
+          <div class="pc-item"><i class="bi bi-check-circle-fill"></i> Four writing tones available</div>
+          <div class="pc-item"><i class="bi bi-check-circle-fill"></i> Full generation history saved</div>
+          <div class="pc-item"><i class="bi bi-check-circle-fill"></i> Export and download instantly</div>
+        </div>
+        <span class="pc-btn"><i class="bi bi-arrow-right-circle-fill"></i> Sign in as Agent</span>
+      </a>
+      <a href="/admin-login" class="pc admin">
+        <div class="pc-badge"><i class="bi bi-shield-lock-fill"></i> Admin Portal</div>
+        <div class="pc-h">I manage the<br/>agency platform</div>
+        <p class="pc-p">Administrator access to manage agents, review all content, and configure platform settings.</p>
+        <div class="pc-list">
+          <div class="pc-item"><i class="bi bi-check-circle-fill"></i> Manage all agent accounts</div>
+          <div class="pc-item"><i class="bi bi-check-circle-fill"></i> Review all generated listings</div>
+          <div class="pc-item"><i class="bi bi-check-circle-fill"></i> Configure compliance rules</div>
+          <div class="pc-item"><i class="bi bi-check-circle-fill"></i> Platform usage analytics</div>
+          <div class="pc-item"><i class="bi bi-check-circle-fill"></i> Manage listing templates</div>
+        </div>
+        <span class="pc-btn"><i class="bi bi-arrow-right-circle-fill"></i> Admin Login</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- TRUST BAR -->
+<div class="trust-bar">
+  <div class="trust-inner">
+    <p class="trust-lbl">Platform capabilities</p>
+    <div class="trust-pills">
+      <div class="trust-pill"><i class="bi bi-camera-fill"></i> Smart image scanning</div>
+      <div class="trust-pill"><i class="bi bi-house-door-fill"></i> Automatic room recognition</div>
+      <div class="trust-pill"><i class="bi bi-pen-fill"></i> AI writing assistant</div>
+      <div class="trust-pill"><i class="bi bi-shield-fill-check"></i> Compliance protection</div>
+      <div class="trust-pill"><i class="bi bi-translate"></i> Multilingual support</div>
+      <div class="trust-pill"><i class="bi bi-cloud-check-fill"></i> Secure & private</div>
+      <div class="trust-pill"><i class="bi bi-download"></i> Export ready</div>
+      <div class="trust-pill"><i class="bi bi-geo-alt-fill"></i> Adelaide built</div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="fbrand">Estate<span>AI</span></div>
+  <div class="fcopy">© 2025 Tech Adaptive Pandit Pty Ltd · Adelaide, South Australia</div>
+  <div class="flinks">
+    <a href="/login" class="flink">Agent Login</a>
+    <a href="/register" class="flink">Register</a>
+    <a href="/admin-login" class="flink">Admin</a>
+  </div>
+</footer>
+
+<script>
+// Navbar scroll
+const nav = document.getElementById('nav');
+window.addEventListener('scroll', () => {
+  nav.classList.toggle('scrolled', window.scrollY > 40);
+}, {passive:true});
+
+// Scroll reveal
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target);}});
+}, {threshold:0.1});
+document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+
+// Particles
+const pc = document.getElementById('particles');
+for(let i=0;i<28;i++){
+  const p = document.createElement('div');
+  p.className='particle';
+  p.style.cssText=`left:${Math.random()*100}%;width:${Math.random()*2+1}px;height:${Math.random()*2+1}px;opacity:${Math.random()*0.3+0.1};animation-duration:${Math.random()*14+10}s;animation-delay:${Math.random()*12}s;`;
+  pc.appendChild(p);
+}
+
+// Smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const t = document.querySelector(a.getAttribute('href'));
+    if(t) t.scrollIntoView({behavior:'smooth',block:'start'});
+  });
+});
+</script>
+</body>
+</html>

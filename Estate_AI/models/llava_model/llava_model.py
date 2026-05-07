@@ -4,7 +4,7 @@ import requests
 import json
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
-LLAVA_MODEL = "llava"
+LLAVA_MODEL = "llavalatest"
 
 # Google Translate language codes for deep-translator
 GOOGLE_LANG_CODES = {
