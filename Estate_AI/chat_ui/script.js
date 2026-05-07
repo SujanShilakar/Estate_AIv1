@@ -198,9 +198,32 @@ async function loadHistory() {
       return;
     }
 
-    container.innerHTML = `<div class="history-list">${gens.map(g => `
+    // Header row with count + delete-all
+    const header = `
+      <div class="history-header">
+        <div class="history-count">
+          <i class="bi bi-collection"></i>
+          <span>${gens.length} generation${gens.length === 1 ? '' : 's'}</span>
+        </div>
+        <button class="btn-sm danger" onclick="confirmDeleteAllGenerations(${gens.length})">
+          <i class="bi bi-trash3-fill"></i> Delete all
+        </button>
+      </div>
+    `;
+
+    const list = `<div class="history-list">${gens.map(g => {
+      // Use the first image path for a thumbnail if available
+      let firstThumb = '';
+      try {
+        const paths = JSON.parse(g.image_paths || '[]');
+        if (paths.length) firstThumb = '/' + paths[0];
+      } catch {}
+      return `
       <div class="history-card">
-        <div>
+        ${firstThumb
+          ? `<img class="history-thumb" src="${firstThumb}" alt="" onerror="this.style.display='none'"/>`
+          : `<div class="history-thumb history-thumb-empty"><i class="bi bi-image"></i></div>`}
+        <div class="history-card-main">
           <div class="history-card-title">
             <i class="bi bi-house-fill" style="color:var(--green-d);"></i>
             ${escapeHtml(g.suburb || 'Property')}
@@ -213,7 +236,7 @@ async function loadHistory() {
             ${g.price ? `<span><i class="bi bi-tag"></i> ${escapeHtml(g.price)}</span>` : ''}
           </div>
         </div>
-        <div style="display:flex;gap:6px;">
+        <div class="history-card-actions">
           <button class="btn-sm" onclick="viewGeneration(${g.id})">
             <i class="bi bi-eye"></i> <span data-i18n="btn_view">View</span>
           </button>
@@ -222,7 +245,9 @@ async function loadHistory() {
           </button>
         </div>
       </div>
-    `).join('')}</div>`;
+    `;}).join('')}</div>`;
+
+    container.innerHTML = header + list;
     applyTranslations();
   } catch (e) {
     container.innerHTML = `<div class="empty-history"><i class="bi bi-exclamation-triangle"></i><p>Could not load history.</p></div>`;
@@ -238,8 +263,39 @@ async function viewGeneration(id) {
     let ads = [];
     try { ads = JSON.parse(g.ads || '[]'); } catch {}
 
+    // Parse image paths for display
+    let imagePaths = [];
+    try { imagePaths = JSON.parse(g.image_paths || '[]'); } catch {}
+
     document.getElementById('modalTitle').textContent =
       `${g.suburb || 'Property'} · ${formatDate(g.created_at)}`;
+
+    const imagesHtml = imagePaths.length ? `
+      <h4 class="hist-section-label">Photos (${imagePaths.length})</h4>
+      <div class="hist-image-grid">
+        ${imagePaths.map(p => `
+          <a href="/${p}" target="_blank" class="hist-image-cell" title="Open full size">
+            <img src="/${p}" alt="" loading="lazy"
+                 onerror="this.parentElement.classList.add('missing'); this.remove();"/>
+            <div class="hist-image-missing">
+              <i class="bi bi-image-alt"></i>
+              <span>Missing</span>
+            </div>
+          </a>
+        `).join('')}
+      </div>
+    ` : '';
+
+    const adsHtml = ads.length ? `
+      <h4 class="hist-section-label">Ads</h4>
+      ${ads.map((ad, i) => `
+        <div class="hist-content-block">
+          <div class="hist-content-eyebrow">Variation ${i+1}</div>
+          ${escapeHtml(ad)}
+        </div>
+      `).join('')}
+    ` : '';
+
     document.getElementById('modalBody').innerHTML = `
       <div style="margin-bottom:14px;">
         <span class="badge badge-info">${escapeHtml(g.tone || '—')}</span>
@@ -247,15 +303,10 @@ async function viewGeneration(id) {
         ${g.baths ? `<span class="badge badge-secondary">${escapeHtml(g.baths)} bath</span>` : ''}
         ${g.price ? `<span class="badge badge-secondary">${escapeHtml(g.price)}</span>` : ''}
       </div>
-      <h4 style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:8px;">Listing</h4>
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:16px;font-size:0.88rem;line-height:1.7;white-space:pre-wrap;color:var(--ink-2);">${escapeHtml(g.listing || '')}</div>
-      <h4 style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:8px;">Ads</h4>
-      ${ads.map((ad, i) => `
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;font-size:0.84rem;line-height:1.6;white-space:pre-wrap;color:var(--ink-2);">
-          <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Variation ${i+1}</div>
-          ${escapeHtml(ad)}
-        </div>
-      `).join('')}
+      ${imagesHtml}
+      <h4 class="hist-section-label">Listing</h4>
+      <div class="hist-content-block hist-content-block-listing">${escapeHtml(g.listing || '')}</div>
+      ${adsHtml}
     `;
     document.getElementById('modalOverlay').classList.add('open');
   } catch (e) {
@@ -278,6 +329,102 @@ async function deleteGeneration(id) {
     loadHistory();
   } catch {
     showToast('Could not delete', 'error');
+  }
+}
+
+// ── Delete-all with typed confirmation ──
+function confirmDeleteAllGenerations(count) {
+  // Build the modal inline; simpler than adding markup to index.html.
+  // User must literally type DELETE before the button activates.
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay open';
+  overlay.id = 'deleteAllOverlay';
+  overlay.innerHTML = `
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-head" style="background:#fef2f2;border-bottom-color:#fecaca;">
+        <h3 style="color:#991b1b;display:flex;align-items:center;gap:8px;">
+          <i class="bi bi-exclamation-triangle-fill"></i> Delete all generations
+        </h3>
+        <button class="modal-close" onclick="closeDeleteAllModal()">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="color:var(--ink);font-size:0.95rem;line-height:1.5;margin-bottom:14px;">
+          You are about to permanently delete
+          <strong>${count} generation${count === 1 ? '' : 's'}</strong>
+          and all their uploaded photos. This action cannot be undone.
+        </p>
+        <p style="color:var(--muted);font-size:0.85rem;margin-bottom:8px;">
+          Type <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-weight:600;">DELETE</code>
+          below to confirm:
+        </p>
+        <input type="text" id="deleteAllConfirmInput" autocomplete="off"
+               style="width:100%;padding:10px 12px;border:2px solid #fecaca;
+                      border-radius:8px;font-size:0.95rem;font-family:monospace;
+                      letter-spacing:0.05em;outline:none;"
+               oninput="onDeleteAllConfirmInput(this)"
+               onkeydown="if(event.key==='Enter' && !document.getElementById('deleteAllBtn').disabled) executeDeleteAllGenerations()"/>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+          <button class="btn-sm" onclick="closeDeleteAllModal()">Cancel</button>
+          <button id="deleteAllBtn" class="btn-sm danger" disabled
+                  onclick="executeDeleteAllGenerations()"
+                  style="opacity:0.5;cursor:not-allowed;">
+            <i class="bi bi-trash3-fill"></i> Delete everything
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('deleteAllConfirmInput')?.focus(), 50);
+}
+
+function onDeleteAllConfirmInput(input) {
+  const btn = document.getElementById('deleteAllBtn');
+  if (!btn) return;
+  if (input.value.trim().toUpperCase() === 'DELETE') {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+  }
+}
+
+function closeDeleteAllModal() {
+  document.getElementById('deleteAllOverlay')?.remove();
+}
+
+async function executeDeleteAllGenerations() {
+  const input = document.getElementById('deleteAllConfirmInput');
+  const btn   = document.getElementById('deleteAllBtn');
+  if (!input || input.value.trim().toUpperCase() !== 'DELETE') return;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Deleting...';
+  try {
+    const res = await fetch('/api/generations', {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm: 'DELETE' }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error || 'Could not delete', 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-trash3-fill"></i> Delete everything';
+      return;
+    }
+    showToast(`Deleted ${data.deleted} generation${data.deleted === 1 ? '' : 's'} ✓`, 'success');
+    closeDeleteAllModal();
+    loadHistory();
+  } catch (e) {
+    showToast('Could not delete', 'error');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-trash3-fill"></i> Delete everything';
   }
 }
 
@@ -688,14 +835,11 @@ function renderResults(data) {
     adsEl.innerHTML = `<div class="ad-block"><div class="ad-block-body" style="color:var(--muted);font-style:italic;">${t('err_ads_backend')}</div></div>`;
   }
 
- // Activate listing tab
+  // Activate listing tab
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelector('[data-tab="tabListing"]').classList.add('active');
   document.getElementById('tabListing').classList.add('active');
-
-  // Update social poster preview (if poster.js is loaded)
-  if (typeof window.renderPoster === 'function') window.renderPoster();
 }
 
 // ═══════ EDIT MODE ═══════

@@ -1,6 +1,9 @@
 from flask import Flask, request, jsonify, send_from_directory, redirect
 from flask_cors import CORS
 import os
+import shutil
+import tempfile
+import uuid
 
 from models.yolo_model.yolo_model import detect_objects
 from models.yolo_model.description import generate_listing, generate_facebook_ads
@@ -30,6 +33,21 @@ app.register_blueprint(admin_bp)
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+def _user_upload_folder(user_id):
+    """Per-user uploads folder: uploads/u<user_id>/"""
+    folder = os.path.join(UPLOAD_FOLDER, f"u{user_id}")
+    os.makedirs(folder, exist_ok=True)
+    return folder
+
+
+def _generation_upload_folder(user_id, gen_id):
+    """Final per-generation folder: uploads/u<user_id>/g<gen_id>/"""
+    folder = os.path.join(_user_upload_folder(user_id), f"g{gen_id}")
+    os.makedirs(folder, exist_ok=True)
+    return folder
+
 
 USE_LLAVA = True
 
@@ -91,9 +109,21 @@ def auth_static(path):
     return send_from_directory("chat_ui/auth", path)
 
 
-@app.route("/uploads/<filename>")
-def uploaded_file(filename):
-    return send_from_directory("uploads", filename)
+@app.route("/uploads/<path:subpath>")
+def uploaded_file(subpath):
+    """Serve images from per-user folders.
+    Path format: u<user_id>/g<gen_id>/<filename>
+    Legacy flat files (just <filename>) still served for backwards compat.
+    Access control: only the owner or an admin can fetch a user's files.
+    """
+    user = get_current_user()
+    parts = subpath.split("/")
+    # Per-user nested path: u<id>/g<id>/file.jpg
+    if parts and parts[0].startswith("u") and parts[0][1:].isdigit():
+        owner_id = int(parts[0][1:])
+        if not user or (user["id"] != owner_id and user["role"] != "admin"):
+            return jsonify({"error": "Forbidden"}), 403
+    return send_from_directory(UPLOAD_FOLDER, subpath)
 
 
 @app.route("/<path:path>")
@@ -131,11 +161,20 @@ def upload():
     all_objects = []
     saved_paths = []
 
+    # Stage 1: Save uploads to a temp folder under this user. We don't yet
+    # know the gen_id (DB row not yet created), so we use a UUID-named folder
+    # and rename it to g<gen_id> after the row is inserted.
+    tmp_id = uuid.uuid4().hex[:12]
+    tmp_folder = os.path.join(_user_upload_folder(user["id"]), f"tmp_{tmp_id}")
+    os.makedirs(tmp_folder, exist_ok=True)
+
     for file in files:
         if file.filename == "":
             continue
 
-        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+        # Sanitise filename to prevent path traversal
+        safe_name = os.path.basename(file.filename)
+        filepath = os.path.join(tmp_folder, safe_name)
         file.save(filepath)
         saved_paths.append(filepath)
 
@@ -145,10 +184,10 @@ def upload():
         if is_fp:
             print(f"[FLOOR PLAN] {file.filename}")
             results.append({
-                "filename":      file.filename,
+                "filename":      safe_name,
                 "objects":       [],
                 "room":          "floor plan",
-                "image_url":     f"/uploads/{file.filename}",
+                "image_url":     "",  # filled in after final folder is known
                 "description":   None,
                 "is_invalid":    False,
                 "is_floor_plan": True
@@ -165,10 +204,10 @@ def upload():
             all_rooms.append(room)
             all_objects.append(objects)
             results.append({
-                "filename":      file.filename,
+                "filename":      safe_name,
                 "objects":       objects,
                 "room":          room,
-                "image_url":     f"/uploads/{file.filename}",
+                "image_url":     "",
                 "description":   None,
                 "is_invalid":    False,
                 "is_floor_plan": False
@@ -176,10 +215,10 @@ def upload():
         except Exception as e:
             print(f"[ERROR] {file.filename}: {e}")
             results.append({
-                "filename":      file.filename,
+                "filename":      safe_name,
                 "objects":       [],
                 "room":          "Unknown",
-                "image_url":     f"/uploads/{file.filename}",
+                "image_url":     "",
                 "description":   None,
                 "is_invalid":    False,
                 "is_floor_plan": False,
@@ -255,7 +294,9 @@ def upload():
     # Compliance check on generated listing
     compliance_violations = db.check_compliance(listing)
 
-    # Persist generation to history
+    # Persist generation to history (gets us a gen_id we can name the folder with)
+    gen_id = None
+    image_paths = []
     try:
         gen_id = db.save_generation(user["id"], {
             "suburb":          details["suburb"],
@@ -271,11 +312,48 @@ def upload():
             "floor_plan_desc": floor_plan_description,
             "analysis":        property_analysis,
             "images":          [r["filename"] for r in results],
+            "image_paths":     [],  # filled in below after rename
             "language":        lang,
         })
     except Exception as e:
         print(f"[DB] Failed to save generation: {e}")
         gen_id = None
+
+    # Stage 2: Rename tmp folder to its final per-generation home and update paths.
+    if gen_id is not None:
+        final_folder = os.path.join(_user_upload_folder(user["id"]), f"g{gen_id}")
+        try:
+            # If somehow the target exists (collision), just use it as-is
+            if not os.path.exists(final_folder):
+                os.rename(tmp_folder, final_folder)
+            else:
+                # Move files individually
+                for fname in os.listdir(tmp_folder):
+                    shutil.move(os.path.join(tmp_folder, fname),
+                                os.path.join(final_folder, fname))
+                shutil.rmtree(tmp_folder, ignore_errors=True)
+
+            # Build relative paths (used for both URL and filesystem reference)
+            for r in results:
+                rel = f"uploads/u{user['id']}/g{gen_id}/{r['filename']}"
+                r["image_url"] = "/" + rel
+                image_paths.append(rel)
+
+            # Persist final paths to the row
+            db.update_generation_image_paths(gen_id, image_paths)
+        except Exception as e:
+            print(f"[FS] Failed to finalise upload folder: {e}")
+            # Fallback: keep tmp folder, point URLs there
+            for r in results:
+                rel = f"uploads/u{user['id']}/tmp_{tmp_id}/{r['filename']}"
+                r["image_url"] = "/" + rel
+                image_paths.append(rel)
+            db.update_generation_image_paths(gen_id, image_paths)
+    else:
+        # DB save failed — still serve images from tmp so the user gets a result
+        for r in results:
+            rel = f"uploads/u{user['id']}/tmp_{tmp_id}/{r['filename']}"
+            r["image_url"] = "/" + rel
 
     return jsonify({
         "images":                 results,
@@ -347,6 +425,23 @@ def delete_my_generation(gid):
         return jsonify({"error": "Forbidden"}), 403
     db.delete_generation(gid)
     return jsonify({"success": True})
+
+
+@app.route("/api/generations", methods=["DELETE"])
+@login_required()
+def delete_all_my_generations():
+    """Delete every generation belonging to the current user.
+    Requires JSON body {"confirm": "DELETE"} as a typed-confirmation safeguard.
+    """
+    user = request.current_user
+    body = request.get_json(silent=True) or {}
+    if (body.get("confirm") or "").strip().upper() != "DELETE":
+        return jsonify({
+            "error": "Confirmation required",
+            "hint":  'Send {"confirm":"DELETE"} in the request body.'
+        }), 400
+    deleted = db.delete_all_generations(user["id"])
+    return jsonify({"success": True, "deleted": deleted})
 
 
 @app.route("/api/templates", methods=["GET"])

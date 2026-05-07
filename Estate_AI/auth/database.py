@@ -97,10 +97,18 @@ def init_db():
                 floor_plan_desc TEXT,
                 analysis        TEXT,
                 images          TEXT,
+                image_paths     TEXT,
                 language        TEXT,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             )
         """)
+
+        # ── Lightweight migrations for existing DBs ──
+        # Add image_paths column if it doesn't exist (was added later)
+        c.execute("PRAGMA table_info(generations)")
+        existing_cols = [row[1] for row in c.fetchall()]
+        if "image_paths" not in existing_cols:
+            c.execute("ALTER TABLE generations ADD COLUMN image_paths TEXT")
 
         # Listing templates (admin-managed)
         c.execute("""
@@ -291,8 +299,8 @@ def save_generation(user_id, data):
         c.execute("""
             INSERT INTO generations
             (user_id, created_at, suburb, beds, baths, parking, price, tone, prop_type,
-             listing, ads, room_desc, floor_plan_desc, analysis, images, language)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             listing, ads, room_desc, floor_plan_desc, analysis, images, image_paths, language)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             user_id,
             datetime.utcnow().isoformat(),
@@ -303,9 +311,18 @@ def save_generation(user_id, data):
             data.get("room_desc"), data.get("floor_plan_desc"),
             json.dumps(data.get("analysis", {})),
             json.dumps(data.get("images", [])),
+            json.dumps(data.get("image_paths", [])),
             data.get("language", "en"),
         ))
         return c.lastrowid
+
+
+def update_generation_image_paths(gen_id, image_paths):
+    """Update image_paths after files have been moved to the final folder."""
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute("UPDATE generations SET image_paths = ? WHERE id = ?",
+                  (json.dumps(image_paths), gen_id))
 
 
 def list_generations(user_id=None, limit=100):
@@ -340,9 +357,66 @@ def get_generation(gen_id):
 
 
 def delete_generation(gen_id):
+    """Delete a generation row AND its associated image files on disk."""
+    import shutil
     with get_db() as conn:
         c = conn.cursor()
+        # First get the paths so we can clean up the files
+        c.execute("SELECT user_id, image_paths FROM generations WHERE id = ?", (gen_id,))
+        row = c.fetchone()
+        if row:
+            try:
+                paths = json.loads(row["image_paths"] or "[]")
+                if paths:
+                    # Determine the generation folder from the first path
+                    # Path format: uploads/u<user>/g<gen>/<filename>
+                    first = paths[0]
+                    parts = first.split("/")
+                    if len(parts) >= 3 and parts[0] == "uploads":
+                        gen_folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                                  parts[0], parts[1], parts[2])
+                        if os.path.isdir(gen_folder):
+                            shutil.rmtree(gen_folder, ignore_errors=True)
+                            print(f"[CLEANUP] Removed image folder: {gen_folder}")
+            except Exception as e:
+                print(f"[CLEANUP] Could not remove image folder for gen {gen_id}: {e}")
         c.execute("DELETE FROM generations WHERE id = ?", (gen_id,))
+
+
+def delete_all_generations(user_id):
+    """Delete every generation for a user AND the associated image files.
+    Returns the number of generations deleted.
+    """
+    import shutil
+    deleted = 0
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute("SELECT id, image_paths FROM generations WHERE user_id = ?", (user_id,))
+        rows = c.fetchall()
+        for row in rows:
+            try:
+                paths = json.loads(row["image_paths"] or "[]")
+                if paths:
+                    first = paths[0]
+                    parts = first.split("/")
+                    if len(parts) >= 3 and parts[0] == "uploads":
+                        gen_folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                                  parts[0], parts[1], parts[2])
+                        if os.path.isdir(gen_folder):
+                            shutil.rmtree(gen_folder, ignore_errors=True)
+            except Exception as e:
+                print(f"[CLEANUP] Could not remove folder for gen {row['id']}: {e}")
+        c.execute("DELETE FROM generations WHERE user_id = ?", (user_id,))
+        deleted = c.rowcount
+        # Try to remove the now-empty user folder too
+        try:
+            user_folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                       "uploads", f"u{user_id}")
+            if os.path.isdir(user_folder) and not os.listdir(user_folder):
+                os.rmdir(user_folder)
+        except Exception:
+            pass
+    return deleted
 
 
 # ── Templates ───────────────────────────────────
