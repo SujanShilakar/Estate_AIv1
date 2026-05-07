@@ -81,12 +81,12 @@ def describe_property_image(
         "options": {
             "temperature": 0,
             "num_predict": 400,
-            "num_ctx": 4096,
+            "num_ctx": 2048,
         },
     }
 
     try:
-        response = requests.post(OLLAMA_URL, json=payload, timeout=120)
+        response = requests.post(OLLAMA_URL, json=payload, timeout=60)
         response.raise_for_status()
         return response.json().get("response", "").strip()
     except requests.exceptions.ConnectionError:
@@ -227,15 +227,15 @@ def _describe_rooms(image_paths: list, all_rooms: list, all_objects: list, user_
         "stream": False,
         "options": {
             "temperature": 0,
-            "num_predict": 600,
-            "num_ctx": 4096,
+            "num_predict": 300,
+            "num_ctx": 2048,
         },
     }
 
     print(f"[LLAVA DEBUG] About to POST with options={payload['options']}")
     raw = ""
     try:
-        r = requests.post(OLLAMA_URL, json=payload, timeout=240)
+        r = requests.post(OLLAMA_URL, json=payload, timeout=60)
         r.raise_for_status()
         raw = r.json().get("response", "").strip()
         print(f"[LLAVA] _describe_rooms batch ok ({n} images, {len(raw)} chars)")
@@ -314,12 +314,12 @@ def _describe_floor_plans(floor_plan_paths: list, user_prompt: str = "", languag
         "stream": False,
         "options": {
             "temperature": 0,
-            "num_predict": 500,
-            "num_ctx": 4096,
+            "num_predict": 250,
+            "num_ctx": 2048,
         },
     }
     try:
-        r = requests.post(OLLAMA_URL, json=payload, timeout=180)
+        r = requests.post(OLLAMA_URL, json=payload, timeout=90)
         r.raise_for_status()
         result = r.json().get("response", "").strip()
         print(f"[LLAVA] _describe_floor_plans ok ({len(result)} chars)")
@@ -406,13 +406,13 @@ def analyse_property_images(
         "options": {
             "temperature": 0,
             "num_predict": 800,
-            "num_ctx": 4096,
+            "num_ctx": 2048,
         },
     }
 
     raw = ""
     try:
-        response = requests.post(OLLAMA_URL, json=payload, timeout=180)
+        response = requests.post(OLLAMA_URL, json=payload, timeout=90)
         response.raise_for_status()
         raw = response.json().get("response", "").strip()
     except requests.exceptions.ConnectionError:

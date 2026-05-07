@@ -1,4 +1,41 @@
-dataset/dataset1
-dataset/dataset2
-dataset/dataset3
-uploads
+# ── Uploads & test data ──────────────────────────────────────
+uploads/
+test_images/
+dataset/
+dataset1/
+dataset2/
+dataset3/
+
+# ── Python cache ──────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pycache
+
+# ── Database ─────────────────────────────────────────────────
+data/estate_ai.db
+*.db
+*.sqlite
+*.sqlite3
+
+# ── ML model weights ─────────────────────────────────────────
+*.pt
+*.pth
+*.onnx
+*.bin
+
+# ── Environment / secrets ────────────────────────────────────
+.env
+.env.*
+*.env
+
+# ── OS junk ──────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE ───────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.code-workspace

@@ -1,0 +1,41 @@
+path: E:/estate_AI/dataset
+
+train: 
+    - dataset1/train/images
+    - dataset2/train/images
+    - dataset3/train/images
+
+val:
+    - dataset1/valid/images
+    - dataset2/valid/images
+    - dataset3/valid/images
+
+
+names:
+  0: chair
+  1: couch
+  2: table
+  3: tv 
+  4: bed
+  5: door
+  6: cabinetDoor
+  7: refrigeratorDoor
+  8: window
+  9: cabinet
+  10: openedDoor
+  11: pole
+  12: zone
+
+roboflow:
+  workspace: object-detection-bu0nk
+  project: indoor-q2avn
+  version: 12
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/object-detection-bu0nk/indoor-q2avn/dataset/12jnzs
+
+  roboflow:
+  workspace: umair-ab9ex
+  project: floor-plans-500-xqdyk
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/umair-ab9ex/floor-plans-500-xqdyk/dataset/1
