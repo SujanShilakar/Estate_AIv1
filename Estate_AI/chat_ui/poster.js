@@ -2,9 +2,9 @@
    POSTER FEATURE  ·  Estate AI / APDG
    Builds shareable social-media posters from generated listing data.
    Depends on:
-     - window.lastResult       (set by script.js after /upload)
-     - window.selectedFiles    (uploaded File objects)
-     - html2canvas             (loaded via CDN, see index.html)
+     - lastResult / window.lastResult       (set by script.js after /upload)
+     - selectedFiles / window.selectedFiles (uploaded File objects)
+     - html2canvas                          (loaded via CDN, see index.html)
 ═══════════════════════════════════════════════════════════════ */
 
 (function () {
@@ -16,7 +16,7 @@
     heroIndex: 0,              // which uploaded image to feature
   };
 
- const PRESET_COLORS = [
+  const PRESET_COLORS = [
     { primary: '#16a34a', dark: '#15803d', label: 'Green'   },
     { primary: '#ea580c', dark: '#c2410c', label: 'Orange'  },
     { primary: '#2563eb', dark: '#1d4ed8', label: 'Blue'    },
@@ -140,22 +140,17 @@
     const listing = (data.content && data.content.listing) || data.final_description || '';
     const images  = (data.images || []).filter(i => !i.is_invalid && !i.is_floor_plan);
 
-    // Address chip = suburb (only thing collected) — fall back gracefully
     const suburb = details.suburb || '';
     const propType = details.prop_type || 'Property';
 
-    // Specs from form
     const beds    = parseInt(details.beds, 10)    || 0;
     const baths   = parseInt(details.baths, 10)   || 0;
     const parking = parseInt(details.parking, 10) || 0;
 
-    // Price + land
     const price    = (details.price || '').trim();
     const landSize = (details.land_size || '').trim();
 
-    // Headline description: prefer the AI listing's first 2 sentences,
-    // fall back to room description, then a generic line.
-    // Landscape format gets a much shorter blurb (less vertical space).
+    // Headline description: trim to format-appropriate length
     const trimmed = listing.replace(/\s+/g, ' ').trim();
     const maxLen = state.format === 'landscape' ? 180
                  : state.format === 'story'     ? 380
@@ -185,11 +180,9 @@
       investment:   ['Strong rental potential', 'High-growth location'],
     }[tone] || [];
 
-    // Convert YOLO objects into nice phrases
     const objPhrases = objs.map(o => prettyFeature(o)).filter(Boolean).slice(0, 4);
     const features = [...new Set([...objPhrases, ...extras])].slice(0, 6);
 
-    // Hero image: use selectedFiles (avoids CORS for html2canvas)
     return {
       suburb, propType, beds, baths, parking,
       price, landSize, blurb, features, images, tone,
@@ -245,7 +238,7 @@
     if (c.images.length) {
       const idx = Math.min(state.heroIndex, c.images.length - 1);
       const img = c.images[idx];
-     const filesArr = (typeof selectedFiles !== 'undefined' && selectedFiles)
+      const filesArr = (typeof selectedFiles !== 'undefined' && selectedFiles)
                      ? selectedFiles
                      : (window.selectedFiles || []);
       const fileObj = filesArr.find(f => f.name === img.filename);
@@ -359,7 +352,6 @@
     const posterW = poster.offsetWidth;
     const scale = posterW > stageW ? stageW / posterW : 1;
     wrap.style.transform = `scale(${scale})`;
-    // Reserve vertical space so the scaled poster doesn't overlap
     wrap.style.height = (poster.offsetHeight * scale) + 'px';
     wrap.style.width  = posterW + 'px';
   }
@@ -383,20 +375,45 @@
     btn.disabled = true;
     btn.innerHTML = `<i class="bi bi-hourglass-split"></i> Rendering...`;
 
-    // Temporarily reset transform so html2canvas captures full size
-    const wrap = poster.parentElement;
-    const prevTransform = wrap.style.transform;
-    wrap.style.transform = 'scale(1)';
+    // Format-specific true dimensions
+    const dims = {
+      square:    { w: 1080, h: 1080 },
+      landscape: { w: 1200, h: 630  },
+      story:     { w: 1080, h: 1920 },
+    }[state.format] || { w: 1080, h: 1080 };
 
+    // Save full inline style of the wrap so we can restore exactly
+    const wrap = poster.parentElement;
+    const savedStyle = wrap.getAttribute('style') || '';
+
+    // Force wrap to true poster size (no scale)
+    wrap.setAttribute('style', `transform: none; width: ${dims.w}px; height: ${dims.h}px;`);
+
+    // Wait for hero image to load
+    const heroImg = poster.querySelector('.poster-hero img');
+    if (heroImg && !(heroImg.complete && heroImg.naturalWidth > 0)) {
+      await new Promise(resolve => {
+        heroImg.onload  = resolve;
+        heroImg.onerror = resolve;
+        setTimeout(resolve, 4000);
+      });
+    }
+
+    // Force layout flush before capture
+    void poster.offsetHeight;
+
+    let success = false;
     try {
       const canvas = await html2canvas(poster, {
         backgroundColor: '#ffffff',
-        scale: 2,                 // crisp 2x output
+        scale: 2,
         useCORS: true,
         allowTaint: true,
         logging: false,
-        width: poster.offsetWidth,
-        height: poster.offsetHeight,
+        width:  dims.w,
+        height: dims.h,
+        windowWidth:  dims.w,
+        windowHeight: dims.h,
       });
       const url = canvas.toDataURL('image/png');
       const a = document.createElement('a');
@@ -406,16 +423,23 @@
       document.body.appendChild(a);
       a.click();
       a.remove();
-      if (window.showToast) window.showToast('Poster downloaded ✓', 'success');
+      success = true;
     } catch (err) {
       console.error('Poster export failed:', err);
-      if (window.showToast) window.showToast('Could not export poster: ' + err.message, 'error');
+      if (window.showToast) window.showToast('Export failed: ' + err.message, 'error');
       else alert('Export failed: ' + err.message);
-    } finally {
-      wrap.style.transform = prevTransform;
-      btn.disabled = false;
-      btn.innerHTML = orig;
     }
+
+    // Restore wrap's original inline style EXACTLY
+    wrap.setAttribute('style', savedStyle);
+
+    // Re-render the poster to guarantee a clean preview state
+    renderPoster();
+
+    btn.disabled = false;
+    btn.innerHTML = orig;
+
+    if (success && window.showToast) window.showToast('Poster downloaded ✓', 'success');
   }
 
   // ─── Util ───────────────────────────────────────────────
