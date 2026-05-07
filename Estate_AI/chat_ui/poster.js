@@ -65,19 +65,20 @@
         </div>
 
         <div class="ctrl-group">
-          <span class="ctrl-label">${tx(['poster_hero'], 'Hero image')}</span>
+          <span class="ctrl-label">${tx(['poster_featured'], 'Featured photo')}</span>
           <select id="posterHeroSelect" class="format-btn" style="padding:8px 10px;cursor:pointer;">
             <option value="0">${tx(['poster_first_photo'], 'First uploaded photo')}</option>
           </select>
         </div>
 
         <div class="poster-actions">
-          <button class="btn-sm" id="posterRegenBtn">
-            <i class="bi bi-arrow-clockwise"></i> ${tx(['poster_refresh'], 'Refresh')}
+          <button class="btn-sm" id="posterShareBtn">
+            <i class="bi bi-share-fill"></i> ${tx(['poster_share'], 'Share')}
           </button>
           <button class="btn-sm primary" id="posterDlBtn">
-            <i class="bi bi-download"></i> ${tx(['poster_download'], 'Download PNG')}
+            <i class="bi bi-download"></i> ${tx(['poster_download'], 'Download')}
           </button>
+          <div class="share-menu" id="posterShareMenu"></div>
         </div>
       </div>
 
@@ -126,8 +127,20 @@
       renderPoster();
     });
 
-    document.getElementById('posterRegenBtn').addEventListener('click', renderPoster);
-    document.getElementById('posterDlBtn').addEventListener('click', downloadPoster);
+    document.getElementById('posterShareBtn').addEventListener('click', toggleShareMenu);
+    document.getElementById('posterDlBtn').addEventListener('click', () => downloadPoster());
+
+    // Close share menu on outside click
+    document.addEventListener('click', (e) => {
+      const menu = document.getElementById('posterShareMenu');
+      const btn  = document.getElementById('posterShareBtn');
+      if (!menu || !btn) return;
+      if (menu.classList.contains('open')
+          && !menu.contains(e.target)
+          && !btn.contains(e.target)) {
+        menu.classList.remove('open');
+      }
+    });
   }
 
   // ─── Build content from lastResult ──────────────────────
@@ -233,17 +246,36 @@
       ).join('');
     }
 
-    // Resolve hero image src — prefer File blob URL (no CORS)
-    let heroSrc = '';
+    // Resolve hero image sources for collage — prefer File blob URLs (no CORS)
+    const filesArr = (typeof selectedFiles !== 'undefined' && selectedFiles)
+                   ? selectedFiles
+                   : (window.selectedFiles || []);
+
+    // Build the photo list, starting from heroIndex (so user's chosen photo leads)
+    const photoSrcs = [];
     if (c.images.length) {
-      const idx = Math.min(state.heroIndex, c.images.length - 1);
-      const img = c.images[idx];
-      const filesArr = (typeof selectedFiles !== 'undefined' && selectedFiles)
-                     ? selectedFiles
-                     : (window.selectedFiles || []);
-      const fileObj = filesArr.find(f => f.name === img.filename);
-      heroSrc = fileObj ? URL.createObjectURL(fileObj) : img.image_url;
+      const order = [];
+      const startIdx = Math.min(state.heroIndex, c.images.length - 1);
+      order.push(startIdx);
+      for (let i = 0; i < c.images.length; i++) {
+        if (i !== startIdx) order.push(i);
+      }
+      for (const i of order) {
+        const img = c.images[i];
+        const fileObj = filesArr.find(f => f.name === img.filename);
+        photoSrcs.push(fileObj ? URL.createObjectURL(fileObj) : img.image_url);
+      }
     }
+
+    // Decide collage cell count based on format
+    // We always show: 1 big + up to 3 small = max 4 cells. Overflow goes on last cell as "+N".
+    const maxCells = 4;
+    const visibleCount = Math.min(photoSrcs.length, maxCells);
+    const overflow = Math.max(0, photoSrcs.length - visibleCount);
+    const countClass = visibleCount <= 1 ? 'count-1'
+                     : visibleCount === 2 ? 'count-2'
+                     : visibleCount === 3 ? 'count-3'
+                     : 'count-4';
 
     const beds    = c.beds    || '—';
     const baths   = c.baths   || '—';
@@ -261,12 +293,27 @@
       </div>
     `).join('');
 
-    const heroHtml = heroSrc
-      ? `<img src="${heroSrc}" alt="" crossorigin="anonymous"/>`
-      : `<div class="poster-hero-empty">
-           <i class="bi bi-house"></i>
-           <span>No photo selected</span>
-         </div>`;
+    // Build collage HTML
+    let heroHtml;
+    if (visibleCount === 0) {
+      heroHtml = `<div class="poster-hero-empty">
+                    <i class="bi bi-house"></i>
+                    <span>No photos uploaded</span>
+                  </div>`;
+    } else {
+      const cells = [];
+      for (let i = 0; i < visibleCount; i++) {
+        const isLast = (i === visibleCount - 1);
+        const showOverlay = isLast && overflow > 0;
+        cells.push(`
+          <div class="col-cell">
+            <img src="${photoSrcs[i]}" alt="" crossorigin="anonymous"/>
+            ${showOverlay ? `<div class="col-more-overlay">+${overflow}</div>` : ''}
+          </div>
+        `);
+      }
+      heroHtml = `<div class="poster-collage ${countClass}">${cells.join('')}</div>`;
+    }
 
     const initials = (c.suburb || c.propType || 'AP').slice(0, 2).toUpperCase();
 
@@ -358,51 +405,36 @@
 
   window.addEventListener('resize', scaleToFit);
 
-  // ─── Download as PNG via html2canvas ────────────────────
-  async function downloadPoster() {
+  // ─── Render poster as PNG blob (used by both download + share) ────
+  async function renderPosterBlob() {
     const poster = document.getElementById('posterRoot');
-    if (!poster) {
-      if (window.showToast) window.showToast('Generate a listing first.', 'error');
-      return;
-    }
-    if (typeof html2canvas !== 'function') {
-      alert('Image export library failed to load. Check your internet connection.');
-      return;
-    }
+    if (!poster) return null;
+    if (typeof html2canvas !== 'function') return null;
 
-    const btn = document.getElementById('posterDlBtn');
-    const orig = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = `<i class="bi bi-hourglass-split"></i> Rendering...`;
-
-    // Format-specific true dimensions
     const dims = {
       square:    { w: 1080, h: 1080 },
       landscape: { w: 1200, h: 630  },
       story:     { w: 1080, h: 1920 },
     }[state.format] || { w: 1080, h: 1080 };
 
-    // Save full inline style of the wrap so we can restore exactly
     const wrap = poster.parentElement;
     const savedStyle = wrap.getAttribute('style') || '';
-
-    // Force wrap to true poster size (no scale)
     wrap.setAttribute('style', `transform: none; width: ${dims.w}px; height: ${dims.h}px;`);
 
-    // Wait for hero image to load
-    const heroImg = poster.querySelector('.poster-hero img');
-    if (heroImg && !(heroImg.complete && heroImg.naturalWidth > 0)) {
-      await new Promise(resolve => {
-        heroImg.onload  = resolve;
-        heroImg.onerror = resolve;
+    // Wait for ALL collage images to load
+    const imgs = poster.querySelectorAll('.poster-collage img');
+    await Promise.all(Array.from(imgs).map(img => {
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+      return new Promise(resolve => {
+        img.onload  = resolve;
+        img.onerror = resolve;
         setTimeout(resolve, 4000);
       });
-    }
+    }));
 
-    // Force layout flush before capture
     void poster.offsetHeight;
 
-    let success = false;
+    let blob = null;
     try {
       const canvas = await html2canvas(poster, {
         backgroundColor: '#ffffff',
@@ -415,31 +447,211 @@
         windowWidth:  dims.w,
         windowHeight: dims.h,
       });
-      const url = canvas.toDataURL('image/png');
-      const a = document.createElement('a');
-      const stamp = new Date().toISOString().slice(0, 10);
-      a.href = url;
-      a.download = `apdg-poster-${state.format}-${stamp}.png`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      success = true;
+      blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
     } catch (err) {
-      console.error('Poster export failed:', err);
-      if (window.showToast) window.showToast('Export failed: ' + err.message, 'error');
-      else alert('Export failed: ' + err.message);
+      console.error('Poster render failed:', err);
     }
 
-    // Restore wrap's original inline style EXACTLY
     wrap.setAttribute('style', savedStyle);
-
-    // Re-render the poster to guarantee a clean preview state
     renderPoster();
+    return blob;
+  }
+
+  // ─── Download as PNG ─────────────────────────────────────
+  async function downloadPoster() {
+    const btn = document.getElementById('posterDlBtn');
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<i class="bi bi-hourglass-split"></i> Rendering...`;
+
+    const blob = await renderPosterBlob();
+    if (!blob) {
+      btn.disabled = false;
+      btn.innerHTML = orig;
+      if (window.showToast) window.showToast('Could not render poster', 'error');
+      return null;
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `apdg-poster-${state.format}-${stamp}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 
     btn.disabled = false;
     btn.innerHTML = orig;
+    if (window.showToast) window.showToast('Poster downloaded ✓', 'success');
+    return blob;
+  }
 
-    if (success && window.showToast) window.showToast('Poster downloaded ✓', 'success');
+  // ─── Build a sharing caption from the listing data ───────
+  function buildCaption() {
+    const c = buildContent();
+    if (!c) return '';
+    const parts = [];
+    const headline = c.suburb
+      ? `🏡 New listing in ${c.suburb}`
+      : `🏡 New property listing`;
+    parts.push(headline);
+    if (c.price) parts.push(`💰 ${c.price}`);
+    const specs = [];
+    if (c.beds)    specs.push(`${c.beds} bed`);
+    if (c.baths)   specs.push(`${c.baths} bath`);
+    if (c.parking) specs.push(`${c.parking} car`);
+    if (specs.length) parts.push(`📐 ${specs.join(' · ')}`);
+    parts.push('');
+    parts.push(c.blurb);
+    parts.push('');
+    parts.push('#realestate #property #forsale' + (c.suburb ? ` #${c.suburb.replace(/\s+/g,'')}` : ''));
+    return parts.join('\n');
+  }
+
+  // ─── Share menu ──────────────────────────────────────────
+  function toggleShareMenu() {
+    const menu = document.getElementById('posterShareMenu');
+    if (!menu) return;
+    if (menu.classList.contains('open')) {
+      menu.classList.remove('open');
+      return;
+    }
+    // Build menu fresh each time
+    const hasNativeShare = typeof navigator.share === 'function';
+    const supportsImageShare = hasNativeShare
+      && typeof navigator.canShare === 'function';
+    menu.innerHTML = `
+      ${hasNativeShare ? `
+        <div class="menu-label">Share with image</div>
+        <button class="share-native">
+          <i class="bi bi-phone"></i> Share via device…
+        </button>
+        <div class="menu-divider"></div>
+      ` : ''}
+      <div class="menu-label">Share caption only</div>
+      <button class="fb share-fb">
+        <i class="bi bi-facebook"></i> Facebook
+      </button>
+      <button class="wa share-wa">
+        <i class="bi bi-whatsapp"></i> WhatsApp
+      </button>
+      <button class="tw share-tw">
+        <i class="bi bi-twitter-x"></i> X (Twitter)
+      </button>
+      <button class="li share-li">
+        <i class="bi bi-linkedin"></i> LinkedIn
+      </button>
+      <div class="menu-divider"></div>
+      <button class="share-copy-cap">
+        <i class="bi bi-clipboard"></i> Copy caption
+      </button>
+      <button class="share-copy-img">
+        <i class="bi bi-images"></i> Copy image
+      </button>
+    `;
+    menu.classList.add('open');
+
+    // Wire menu actions
+    menu.querySelector('.share-native')?.addEventListener('click', shareNative);
+    menu.querySelector('.share-fb')?.addEventListener('click', shareFacebook);
+    menu.querySelector('.share-wa')?.addEventListener('click', shareWhatsApp);
+    menu.querySelector('.share-tw')?.addEventListener('click', shareTwitter);
+    menu.querySelector('.share-li')?.addEventListener('click', shareLinkedIn);
+    menu.querySelector('.share-copy-cap')?.addEventListener('click', copyCaption);
+    menu.querySelector('.share-copy-img')?.addEventListener('click', copyImage);
+  }
+
+  function closeShareMenu() {
+    document.getElementById('posterShareMenu')?.classList.remove('open');
+  }
+
+  // Native Web Share API — best path on mobile (IG, FB, WA, etc.)
+  async function shareNative() {
+    closeShareMenu();
+    if (window.showToast) window.showToast('Preparing image…', 'info');
+    const blob = await renderPosterBlob();
+    if (!blob) return;
+    const file = new File([blob], `apdg-poster-${state.format}.png`, { type: 'image/png' });
+    const caption = buildCaption();
+    const shareData = { files: [file], text: caption, title: 'Property Listing' };
+    try {
+      if (navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+      } else if (navigator.share) {
+        await navigator.share({ text: caption, title: 'Property Listing' });
+      } else {
+        if (window.showToast) window.showToast('Sharing not supported on this device', 'error');
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error('Share failed:', err);
+        if (window.showToast) window.showToast('Share cancelled', 'info');
+      }
+    }
+  }
+
+  function shareFacebook() {
+    closeShareMenu();
+    const caption = encodeURIComponent(buildCaption());
+    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.origin)}&quote=${caption}`;
+    window.open(url, '_blank', 'width=600,height=600');
+    if (window.showToast) window.showToast('Tip: download the image too, then attach it in Facebook', 'info');
+  }
+
+  function shareWhatsApp() {
+    closeShareMenu();
+    const caption = encodeURIComponent(buildCaption());
+    const url = `https://wa.me/?text=${caption}`;
+    window.open(url, '_blank');
+    if (window.showToast) window.showToast('Tip: download the image and attach it to your WhatsApp message', 'info');
+  }
+
+  function shareTwitter() {
+    closeShareMenu();
+    const caption = encodeURIComponent(buildCaption());
+    const url = `https://twitter.com/intent/tweet?text=${caption}`;
+    window.open(url, '_blank', 'width=600,height=600');
+  }
+
+  function shareLinkedIn() {
+    closeShareMenu();
+    const url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.origin)}`;
+    window.open(url, '_blank', 'width=600,height=600');
+    if (window.showToast) window.showToast('Caption copied — paste it into LinkedIn', 'info');
+    navigator.clipboard?.writeText(buildCaption()).catch(() => {});
+  }
+
+  async function copyCaption() {
+    closeShareMenu();
+    const caption = buildCaption();
+    try {
+      await navigator.clipboard.writeText(caption);
+      if (window.showToast) window.showToast('Caption copied to clipboard ✓', 'success');
+    } catch {
+      if (window.showToast) window.showToast('Could not copy — your browser may block clipboard', 'error');
+    }
+  }
+
+  async function copyImage() {
+    closeShareMenu();
+    if (!navigator.clipboard || !window.ClipboardItem) {
+      if (window.showToast) window.showToast('Image clipboard not supported — use Download instead', 'error');
+      return;
+    }
+    if (window.showToast) window.showToast('Preparing image…', 'info');
+    const blob = await renderPosterBlob();
+    if (!blob) return;
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob })
+      ]);
+      if (window.showToast) window.showToast('Image copied — paste it anywhere ✓', 'success');
+    } catch (err) {
+      console.error('Image copy failed:', err);
+      if (window.showToast) window.showToast('Could not copy image', 'error');
+    }
   }
 
   // ─── Util ───────────────────────────────────────────────
