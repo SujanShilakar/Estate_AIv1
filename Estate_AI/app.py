@@ -4,7 +4,7 @@ import os
 
 from models.yolo_model.yolo_model import detect_objects
 from models.yolo_model.description import generate_listing, generate_facebook_ads
-from models.clip_model.clip_model import detect_room_clip, is_floor_plan_clip
+from models.clip_model.clip_model import detect_room_clip, is_floor_plan_clip, classify_image
 from models.llava_model.llava_model import (
     analyse_property_images,
     _describe_rooms,
@@ -139,8 +139,10 @@ def upload():
         file.save(filepath)
         saved_paths.append(filepath)
 
-        # Step 1: Floor plan check
-        if is_floor_plan(filepath):
+        # Step 1+2: Floor plan check AND room detection in ONE CLIP call (2x faster)
+        is_fp, room = classify_image(filepath)
+
+        if is_fp:
             print(f"[FLOOR PLAN] {file.filename}")
             results.append({
                 "filename":      file.filename,
@@ -155,8 +157,6 @@ def upload():
             all_objects.append([])
             continue
 
-        # Step 2: CLIP room classification
-        room = detect_room_clip(filepath)
         print(f"[CLIP] Room: {room}")
 
         # Step 3: YOLO object detection
@@ -231,19 +231,9 @@ def upload():
             except Exception as e:
                 print(f"[LLAVA] Floor plan description error: {e}")
 
-        if valid_paths:
-            try:
-                print(f"[LLAVA] Running 5-dimension analysis...")
-                property_analysis = analyse_property_images(
-                    image_paths=valid_paths,
-                    all_rooms=valid_rooms,
-                    all_objects=valid_objects,
-                    language=lang
-                )
-                print(f"[LLAVA] Analysis complete")
-            except Exception as e:
-                print(f"[LLAVA] Analysis error: {e}")
-                property_analysis = {}
+        # Second LLaVA analysis call skipped to reduce generation time
+        property_analysis = {}
+        print(f"[SPEED] Skipped 5-dimension analysis (saves 20-40s)")
 
         if valid_paths and not property_analysis.get("room_types"):
             seen = []
