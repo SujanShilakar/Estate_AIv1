@@ -1,0 +1,437 @@
+/* ═══════════════════════════════════════════════════════════════
+   POSTER FEATURE  ·  Estate AI / APDG
+   Generates branded social-media posters for listings.
+   Designed to stay visually consistent with existing dashboard.
+═══════════════════════════════════════════════════════════════ */
+
+/* ───── Tab controls bar ───── */
+.poster-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.poster-controls .ctrl-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.poster-controls .ctrl-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.poster-controls .format-grid {
+  display: flex;
+  gap: 6px;
+}
+
+.format-btn {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-2);
+  transition: all .15s ease;
+}
+.format-btn:hover { border-color: var(--green); color: var(--green-d); }
+.format-btn.active {
+  background: var(--green-d);
+  border-color: var(--green-d);
+  color: #fff;
+}
+.format-btn .fmt-dim {
+  font-size: 0.7rem;
+  opacity: 0.75;
+  font-weight: 400;
+}
+
+.color-swatches {
+  display: flex;
+  gap: 6px;
+}
+.swatch {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px var(--border);
+  cursor: pointer;
+  transition: transform .15s ease;
+}
+.swatch:hover { transform: scale(1.08); }
+.swatch.active { box-shadow: 0 0 0 2px var(--ink); transform: scale(1.05); }
+
+.poster-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+/* ───── Preview frame ───── */
+.poster-stage {
+  background:
+    linear-gradient(135deg, #fafafa 25%, transparent 25%) -10px 0/20px 20px,
+    linear-gradient(225deg, #fafafa 25%, transparent 25%) -10px 0/20px 20px,
+    linear-gradient(315deg, #fafafa 25%, transparent 25%) 0 0/20px 20px,
+    linear-gradient(45deg,  #fafafa 25%, #f1f5f9 25%) 0 0/20px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+  overflow: auto;
+  max-height: 80vh;
+}
+
+/* The poster itself - rendered at 1:1 source size, then scaled visually
+   using transform so html2canvas captures it pixel-perfect. */
+.poster-wrap {
+  transform-origin: top center;
+}
+
+.poster {
+  position: relative;
+  background: #fff;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #0f172a;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+  overflow: hidden;
+}
+
+/* default accent — overridden inline */
+.poster { --accent: #16a34a; --accent-2: #15803d; }
+
+/* ───── Square (Instagram 1080x1080) ───── */
+.poster.fmt-square { width: 1080px; height: 1080px; }
+
+/* ───── Landscape (Facebook 1200x630) ───── */
+.poster.fmt-landscape { width: 1200px; height: 630px; }
+
+/* ───── Story (Instagram/FB 1080x1920) ───── */
+.poster.fmt-story { width: 1080px; height: 1920px; }
+
+/* ═════ HEADER BAND ═════ */
+.poster-header {
+  background: #0f172a;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 36px;
+  box-sizing: border-box;
+}
+.poster.fmt-square    .poster-header { height: 100px; }
+.poster.fmt-landscape .poster-header { padding: 14px 24px; height: 66px; }
+.poster.fmt-story     .poster-header { height: 120px; padding: 28px 40px; }
+
+.poster-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.poster-brand-logo {
+  width: 52px; height: 52px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; color: #fff;
+}
+.poster.fmt-landscape .poster-brand-logo { width: 38px; height: 38px; font-size: 20px; border-radius: 9px; }
+.poster-brand-text .brand-1 {
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+}
+.poster.fmt-landscape .poster-brand-text .brand-1 { font-size: 16px; }
+.poster-brand-text .brand-2 {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+.poster.fmt-landscape .poster-brand-text .brand-2 { font-size: 9px; }
+
+.poster-tagline {
+  font-size: 13px;
+  font-weight: 500;
+  text-align: right;
+  line-height: 1.4;
+  color: rgba(255,255,255,0.85);
+}
+.poster-tagline strong { color: var(--accent); font-weight: 700; }
+.poster.fmt-landscape .poster-tagline { font-size: 10px; }
+
+/* ═════ HERO IMAGE ═════ */
+.poster-hero {
+  position: relative;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+.poster.fmt-square    .poster-hero { height: 480px; }
+.poster.fmt-landscape .poster-hero { width: 50%; position: absolute; top: 66px; left: 0; bottom: 0; }
+.poster.fmt-story     .poster-hero { height: 720px; }
+
+.poster-hero img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.poster-hero-empty {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 12px;
+  color: #94a3b8; font-size: 18px;
+}
+.poster-hero-empty i { font-size: 64px; }
+
+/* address chip overlaid on hero */
+.poster-address-chip {
+  position: absolute;
+  left: 24px; bottom: 24px;
+  background: rgba(15,23,42,0.85);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 500;
+  display: flex; align-items: center; gap: 8px;
+  max-width: 80%;
+}
+.poster-address-chip i { color: var(--accent); }
+.poster.fmt-landscape .poster-address-chip { font-size: 11px; padding: 6px 12px; left: 14px; bottom: 14px; }
+
+/* Stage badge top-right */
+.poster-stage-badge {
+  position: absolute;
+  right: 0; top: 0;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 8px 22px;
+  letter-spacing: 0.04em;
+}
+.poster.fmt-landscape .poster-stage-badge { font-size: 10px; padding: 5px 14px; }
+
+/* ═════ BODY ═════ */
+.poster-body {
+  padding: 32px 40px;
+}
+.poster.fmt-square    .poster-body { padding: 28px 36px; }
+.poster.fmt-landscape .poster-body {
+  padding: 16px 28px 16px 28px;
+  margin-left: 50%;
+  width: 50%;
+  height: calc(100% - 66px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.poster.fmt-story     .poster-body { padding: 40px 50px; }
+
+/* Price block */
+.poster-price-block {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.poster.fmt-landscape .poster-price-block { margin-bottom: 10px; padding-bottom: 10px; }
+.price-eyebrow {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  letter-spacing: 0.02em;
+}
+.poster.fmt-landscape .price-eyebrow { font-size: 10px; }
+.price-amount {
+  font-size: 44px;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1;
+  margin-top: 6px;
+  letter-spacing: -0.02em;
+}
+.poster.fmt-landscape .price-amount { font-size: 28px; margin-top: 3px; }
+.poster.fmt-story     .price-amount { font-size: 56px; }
+.price-sub {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 6px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.poster.fmt-landscape .price-sub { font-size: 9px; margin-top: 2px; }
+
+.fixed-tag {
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 5px 12px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.poster.fmt-landscape .fixed-tag { font-size: 8px; padding: 3px 8px; }
+
+/* Spec row */
+.poster-specs {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+.poster.fmt-landscape .poster-specs { margin-bottom: 12px; gap: 6px; }
+.spec-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
+}
+.spec-item i { color: var(--accent); font-size: 18px; }
+.poster.fmt-landscape .spec-item { font-size: 11px; padding: 6px 8px; gap: 5px; }
+.poster.fmt-landscape .spec-item i { font-size: 13px; }
+.poster.fmt-story .spec-item { font-size: 18px; padding: 14px 16px; }
+
+/* Description */
+.poster-desc-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.poster.fmt-landscape .poster-desc-label { font-size: 9px; margin-bottom: 4px; }
+
+.poster-desc {
+  font-size: 15px;
+  line-height: 1.55;
+  color: #334155;
+  margin-bottom: 22px;
+}
+.poster.fmt-landscape .poster-desc { font-size: 11px; line-height: 1.45; margin-bottom: 12px; }
+.poster.fmt-story     .poster-desc { font-size: 18px; line-height: 1.6; }
+
+/* Features grid (key callouts) */
+.poster-features {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 18px;
+  margin-bottom: 22px;
+}
+.poster.fmt-landscape .poster-features { display: none; } /* too tight in landscape */
+.feature-item {
+  font-size: 13px;
+  color: #1e293b;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.feature-item i {
+  color: var(--accent);
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.poster.fmt-story .feature-item { font-size: 16px; }
+
+/* Footer */
+.poster-footer {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+.poster.fmt-landscape .poster-footer { padding-top: 8px; font-size: 9px; }
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.footer-tag {
+  background: var(--accent);
+  color: #fff;
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800;
+  font-size: 16px;
+}
+.poster.fmt-landscape .footer-tag { width: 22px; height: 22px; font-size: 11px; border-radius: 5px; }
+.footer-text {
+  font-size: 11px;
+  color: #475569;
+  line-height: 1.3;
+}
+.footer-text strong { color: #0f172a; font-size: 12px; display: block; }
+.poster.fmt-landscape .footer-text { font-size: 8px; }
+.poster.fmt-landscape .footer-text strong { font-size: 9px; }
+
+.footer-right {
+  font-size: 10px;
+  color: #94a3b8;
+  text-align: right;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.poster.fmt-landscape .footer-right { font-size: 7px; }
+
+/* Loading state */
+.poster-empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--muted);
+}
+.poster-empty-state i {
+  font-size: 48px;
+  color: var(--muted-lt);
+  margin-bottom: 12px;
+  display: block;
+}
+
+/* Toast helper override (if needed) — uses existing showToast */
+
+/* Responsive: small previews on narrow screens */
+@media (max-width: 1100px) {
+  .poster-stage { padding: 12px; }
+}

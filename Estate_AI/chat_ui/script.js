@@ -688,11 +688,14 @@ function renderResults(data) {
     adsEl.innerHTML = `<div class="ad-block"><div class="ad-block-body" style="color:var(--muted);font-style:italic;">${t('err_ads_backend')}</div></div>`;
   }
 
-  // Activate listing tab
+ // Activate listing tab
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelector('[data-tab="tabListing"]').classList.add('active');
   document.getElementById('tabListing').classList.add('active');
+
+  // Update social poster preview (if poster.js is loaded)
+  if (typeof window.renderPoster === 'function') window.renderPoster();
 }
 
 // ═══════ EDIT MODE ═══════
