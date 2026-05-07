@@ -1,4 +1,4 @@
-# Estate AI — Enhanced
+# Estate AI 
 
 AI-powered property listing generator for real estate agents. Upload property photos → get a professional `realestate.com.au`-style listing and FB/IG ads in seconds.
 
