@@ -771,9 +771,28 @@ html, body {
 }
 .desc-card p {
   font-size: 0.88rem;
-  line-height: 1.55;
+  line-height: 1.65;
   color: var(--ink-2);
-  margin-bottom: 8px;
+  margin: 0 0 12px;
+}
+.desc-card p:last-child { margin-bottom: 0; }
+
+.desc-highlights {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.highlights-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.highlights-item {
+  font-size: 0.88rem;
+  color: var(--ink-2);
+  line-height: 1.65;
+  padding: 1px 0;
 }
 .desc-meta { display: flex; flex-wrap: wrap; gap: 6px; }
 .desc-meta .pill {
@@ -785,53 +804,6 @@ html, body {
   color: var(--muted);
 }
 
-.analysis-panel {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
-  margin-bottom: 16px;
-}
-.analysis-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-bottom: 12px;
-  margin-bottom: 12px;
-  border-bottom: 1px solid var(--border);
-}
-.analysis-header-title { font-size: 0.88rem; font-weight: 600; color: var(--ink); }
-.analysis-header-sub { font-size: 0.72rem; color: var(--muted); margin-left: auto; }
-.analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.analysis-section {
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 12px;
-}
-.analysis-section.full-width { grid-column: 1 / -1; }
-.analysis-section-label {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-.analysis-table { width: 100%; font-size: 0.82rem; border-collapse: collapse; }
-.analysis-table th {
-  font-weight: 600;
-  color: var(--ink-2);
-  padding: 4px 8px 4px 0;
-  border-bottom: 1px solid var(--border);
-  text-align: left;
-}
-.analysis-table td {
-  padding: 4px 8px 4px 0;
-  color: var(--ink-2);
-  border-bottom: 1px solid var(--border-lt);
-  text-transform: capitalize;
-}
 
 .badge {
   display: inline-block;
@@ -1179,7 +1151,6 @@ html, body {
   .topbar { padding: 0 16px; }
   .content { padding: 16px; }
   .form-row.cols-3 { grid-template-columns: 1fr 1fr; }
-  .analysis-grid { grid-template-columns: 1fr; }
   .menu-btn { display: flex !important; }
 }
 

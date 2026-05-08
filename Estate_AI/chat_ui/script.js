@@ -601,93 +601,6 @@ function confidenceBadgeClass(conf) {
   }[String(conf).toLowerCase()] || 'badge-secondary';
 }
 
-// ═══════ ANALYSIS PANEL ═══════
-function renderAnalysis(analysis) {
-  const el = document.getElementById('analysisPanel');
-  if (!el) return;
-
-  if (!analysis || !Object.keys(analysis).length) {
-    el.innerHTML = `<div class="analysis-header">
-      <i class="bi bi-cpu" style="color:var(--green);"></i>
-      <span class="analysis-header-title">${t('analysis_heading')}</span>
-    </div>
-    <p style="color:var(--muted);font-style:italic;font-size:0.82rem;">${t('analysis_not_available')}</p>`;
-    return;
-  }
-
-  const interior_condition  = analysis.interior_condition  || {};
-  const architectural_style = analysis.architectural_style || {};
-  const fixtures            = analysis.fixtures || [];
-  const luxury              = analysis.luxury_features || [];
-  const room_types          = Array.isArray(analysis.room_types) ? analysis.room_types : [];
-
-  const condClass = conditionBadgeClass(interior_condition.rating);
-  const confClass = confidenceBadgeClass(architectural_style.confidence);
-
-  const roomRows = room_types.map(r => `
-    <tr>
-      <td style="font-weight:600;">${tv(r.room || '')}</td>
-      <td>${tv(r.size || t('label_unknown'))}</td>
-      <td>${tv(r.flooring || t('label_unknown'))}</td>
-      <td>${tv(r.ceiling || t('label_unknown'))}</td>
-    </tr>
-  `).join('');
-
-  const fixturesHtml = fixtures.length
-    ? `<div style="display:flex;flex-wrap:wrap;gap:4px;">${fixtures.map(f => `<span class="badge badge-secondary">${tv(f)}</span>`).join('')}</div>`
-    : `<p style="color:var(--muted);font-size:0.78rem;font-style:italic;margin:0;">${t('label_none_detected')}</p>`;
-
-  const luxuryHtml = luxury.length
-    ? `<div style="display:flex;flex-wrap:wrap;gap:4px;">${luxury.map(l => `<span class="badge badge-warning">${tv(l)}</span>`).join('')}</div>`
-    : `<p style="color:var(--muted);font-size:0.78rem;font-style:italic;margin:0;">${t('label_none_detected')}</p>`;
-
-  el.innerHTML = `
-    <div class="analysis-header">
-      <i class="bi bi-cpu" style="color:var(--green);"></i>
-      <span class="analysis-header-title">${t('analysis_heading')}</span>
-      <span class="analysis-header-sub">${t('analysis_sub')}</span>
-    </div>
-    <div class="analysis-grid">
-      <div class="analysis-section full-width">
-        <div class="analysis-section-label">${t('col_room_types')}</div>
-        <table class="analysis-table">
-          <thead>
-            <tr>
-              <th>${t('col_room')}</th>
-              <th>${t('col_size')}</th>
-              <th>${t('col_flooring')}</th>
-              <th>${t('col_ceiling')}</th>
-            </tr>
-          </thead>
-          <tbody>${roomRows || `<tr><td colspan="4" style="color:var(--muted);">${t('label_no_rooms')}</td></tr>`}</tbody>
-        </table>
-      </div>
-      <div class="analysis-section">
-        <div class="analysis-section-label">${t('col_condition')}</div>
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-          <span class="badge ${condClass}">${tv(interior_condition.rating) || t('label_unknown')}</span>
-        </div>
-        <p style="color:var(--muted);font-size:0.78rem;margin:0;">${interior_condition.notes || ''}</p>
-      </div>
-      <div class="analysis-section">
-        <div class="analysis-section-label">${t('col_style')}</div>
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-          <span style="font-weight:600;text-transform:capitalize;">${tv(architectural_style.style) || t('label_unknown')}</span>
-          <span class="badge ${confClass}">${tv(architectural_style.confidence) || ''} ${t('label_confidence')}</span>
-        </div>
-        <p style="color:var(--muted);font-size:0.78rem;margin:0;">${architectural_style.notes || ''}</p>
-      </div>
-      <div class="analysis-section">
-        <div class="analysis-section-label">${t('col_fixtures')}</div>
-        ${fixturesHtml}
-      </div>
-      <div class="analysis-section">
-        <div class="analysis-section-label">${t('col_luxury')}</div>
-        ${luxuryHtml}
-      </div>
-    </div>`;
-}
-
 // ═══════ COMPLIANCE BAR ═══════
 function renderCompliance(violations) {
   const el = document.getElementById('complianceBar');
@@ -749,6 +662,23 @@ function renderResults(data) {
   // Image descriptions
   const imageArea = document.getElementById('imageDescriptions');
   imageArea.innerHTML = '';
+
+  // Extract highlights from listing (everything from "The Highlights:" onward)
+  let highlightsHtml = '';
+  if (listing) {
+    const hiIdx = listing.indexOf('The Highlights:');
+    if (hiIdx !== -1) {
+      const hiText = listing.slice(hiIdx); // "The Highlights:\n- item\n- item..."
+      const lines = hiText.split('\n');
+      const labelLine = `<div class="highlights-label">${escapeHtml(lines[0])}</div>`;
+      const bulletLines = lines.slice(1)
+        .filter(l => l.trim())
+        .map(l => `<div class="highlights-item">${escapeHtml(l.trim())}</div>`)
+        .join('');
+      highlightsHtml = `<div class="desc-highlights">${labelLine}${bulletLines}</div>`;
+    }
+  }
+
   if (data.images) {
     const roomItems = data.images.filter(i => !i.is_invalid && !i.is_floor_plan);
     const fpItems   = data.images.filter(i => i.is_floor_plan);
@@ -760,23 +690,21 @@ function renderResults(data) {
     }).join('');
 
     if (roomItems.length > 0) {
-      const combinedDesc = roomItems
-        .map(i => (i.description || '').trim().replace(/\.+$/, ''))
-        .filter(Boolean)
-        .join('. ')
-        .replace(/\.\s*\./g, '.') + (roomItems.some(i => i.description) ? '.' : '') || t('label_no_desc');
-      const roomLabels = [...new Set(roomItems.map(r => r.room).filter(Boolean))].map(tv).join(', ');
-      const objLabels  = [...new Set(roomItems.flatMap(r => r.objects || []))].slice(0, 8).join(', ');
+      const rawDesc = (data.room_description && data.room_description.trim())
+        || roomItems
+            .map(i => (i.description || '').trim().replace(/\.+$/, ''))
+            .filter(Boolean)
+            .join('. ')
+            .replace(/\.\s*\./g, '.') + (roomItems.some(i => i.description) ? '.' : '')
+        || t('label_no_desc');
+      const descParasHtml = rawDesc.split(/\n\n+/)
+        .map(p => p.trim()).filter(Boolean)
+        .map(p => `<p>${escapeHtml(p)}</p>`).join('');
       imageArea.innerHTML += `
         <div class="desc-card">
-          <div class="thumb-strip">${thumbStrip(roomItems)}</div>
           <div class="section-label">📷 ${t('section_interior')}</div>
-          <p>${escapeHtml(combinedDesc)}</p>
-          <div class="desc-meta">
-            ${roomLabels ? `<span class="pill">🎯 CLIP: ${escapeHtml(roomLabels)}</span>` : ''}
-            ${objLabels  ? `<span class="pill">📦 YOLO: ${escapeHtml(objLabels)}</span>` : ''}
-            <span class="pill">✍️ LLaVA</span>
-          </div>
+          ${descParasHtml}
+          ${highlightsHtml}
         </div>`;
     }
 
@@ -787,10 +715,6 @@ function renderResults(data) {
           <div class="thumb-strip">${thumbStrip(fpItems)}</div>
           <div class="section-label">📐 ${t('section_floor_plan')}</div>
           <p>${escapeHtml(fpDesc)}</p>
-          <div class="desc-meta">
-            <span class="pill">📐 ${fpItems.length} ${t(fpItems.length > 1 ? 'label_floor_plans' : 'label_floor_plan')}</span>
-            <span class="pill">✍️ LLaVA</span>
-          </div>
         </div>`;
     }
   }
@@ -805,10 +729,6 @@ function renderResults(data) {
     });
     analysis.room_types = seen.map(r => ({ room: r, size: 'unknown', flooring: 'unknown', ceiling: 'unknown' }));
   }
-  renderAnalysis(analysis);
-
-  // Listing
-  document.getElementById('listingBody').textContent = listing || t('listing_fallback');
 
   // Ads
   const adsEl = document.getElementById('adsContainer');
@@ -835,11 +755,11 @@ function renderResults(data) {
     adsEl.innerHTML = `<div class="ad-block"><div class="ad-block-body" style="color:var(--muted);font-style:italic;">${t('err_ads_backend')}</div></div>`;
   }
 
-  // Activate listing tab
+  // Activate FB / IG Ads tab
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-  document.querySelector('[data-tab="tabListing"]').classList.add('active');
-  document.getElementById('tabListing').classList.add('active');
+  document.querySelector('[data-tab="tabAds"]').classList.add('active');
+  document.getElementById('tabAds').classList.add('active');
 }
 
 // ═══════ EDIT MODE ═══════
@@ -868,7 +788,7 @@ async function saveEdits() {
     showToast('No generation to save', 'error');
     return;
   }
-  const listing = document.getElementById('listingBody').innerText;
+  const listing = (lastResult && lastResult.content && lastResult.content.listing) || '';
   const ads = Array.from(document.querySelectorAll("[id^='adBody']")).map(el => el.innerText);
   try {
     const res = await fetch(`/api/generations/${lastResult.generation_id}`, {
@@ -915,7 +835,7 @@ function dlTxt(id, name) {
 
 function exportAll() {
   if (!lastResult) return;
-  const listing = document.getElementById('listingBody')?.innerText || '';
+  const listing = (lastResult && lastResult.content && lastResult.content.listing) || '';
   let txt = t('export_listing_header') + '\n\n' + listing + '\n\n';
   document.querySelectorAll("[id^='adBody']").forEach((el, i) => {
     txt += `=== ${t('export_ad_header')} ${i + 1} ===\n\n${el.innerText}\n\n`;
@@ -928,7 +848,7 @@ function exportAll() {
 }
 
 function copyAll() {
-  const listing = document.getElementById('listingBody')?.innerText || '';
+  const listing = (lastResult && lastResult.content && lastResult.content.listing) || '';
   const ads = Array.from(document.querySelectorAll("[id^='adBody']")).map((el, i) =>
     `${t('label_copy_var')} ${i + 1}:\n${el.innerText}`).join('\n\n');
   navigator.clipboard.writeText(listing + (ads ? '\n\n' + ads : ''))

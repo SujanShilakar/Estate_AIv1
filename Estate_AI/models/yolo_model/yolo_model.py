@@ -3,10 +3,8 @@ from ultralytics import YOLO
 model = YOLO("yolov8m.pt")
 
 VALID_HOME_OBJECTS = {
-    "bed", "chair", "dining table", "tv", "laptop",
-    "refrigerator", "sink", "toilet", "couch", "cabinet",
-    "window", "door", "lamp", "pillow", "clock", "vase",
-    "microwave", "oven", "toaster", "book", "mirror"
+    "sink", "toilet", "refrigerator", "oven", "microwave",
+    "window", "door", "mirror", "cabinet",
 }
 
 def detect_objects(image_path):

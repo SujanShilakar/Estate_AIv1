@@ -168,6 +168,10 @@ def upload():
     tmp_folder = os.path.join(_user_upload_folder(user["id"]), f"tmp_{tmp_id}")
     os.makedirs(tmp_folder, exist_ok=True)
 
+    import hashlib
+    seen_hashes = set()   # deduplicate identical images
+    seen_rooms  = set()   # deduplicate room types
+
     for file in files:
         if file.filename == "":
             continue
@@ -176,6 +180,13 @@ def upload():
         safe_name = os.path.basename(file.filename)
         filepath = os.path.join(tmp_folder, safe_name)
         file.save(filepath)
+
+        # ── Duplicate image check ──
+        file_hash = hashlib.md5(open(filepath, "rb").read()).hexdigest()
+        if file_hash in seen_hashes:
+            print(f"[DUPLICATE IMAGE] {safe_name} — skipped")
+            continue
+        seen_hashes.add(file_hash)
         saved_paths.append(filepath)
 
         # Step 1+2: Floor plan check AND room detection in ONE CLIP call (2x faster)
@@ -187,7 +198,7 @@ def upload():
                 "filename":      safe_name,
                 "objects":       [],
                 "room":          "floor plan",
-                "image_url":     "",  # filled in after final folder is known
+                "image_url":     "",
                 "description":   None,
                 "is_invalid":    False,
                 "is_floor_plan": True
@@ -197,6 +208,12 @@ def upload():
             continue
 
         print(f"[CLIP] Room: {room}")
+
+        # ── Duplicate room type check ──
+        if room in seen_rooms and room not in ("Unknown", "Room"):
+            print(f"[DUPLICATE ROOM] {safe_name} already have a {room} — skipped")
+            continue
+        seen_rooms.add(room)
 
         # Step 3: YOLO object detection
         try:
@@ -241,25 +258,90 @@ def upload():
 
     if USE_LLAVA:
         if valid_paths:
-            individual_descs = _describe_rooms(valid_paths, valid_rooms, valid_objects, prompt, lang)
+            # Deduplicate: only describe the first image per unique room type
+            seen_rooms = {}
+            dedup_paths, dedup_rooms, dedup_objects, dedup_indices = [], [], [], []
+            for i, room in enumerate(valid_rooms):
+                key = room.lower()
+                if key not in seen_rooms:
+                    seen_rooms[key] = i
+                    dedup_paths.append(valid_paths[i])
+                    dedup_rooms.append(valid_rooms[i])
+                    dedup_objects.append(valid_objects[i])
+                    dedup_indices.append(i)
 
-            for i in range(len(valid_paths)):
-                if i >= len(individual_descs) or not individual_descs[i]:
-                    img_room = valid_rooms[i] if i < len(valid_rooms) else "room"
-                    img_objs = valid_objects[i] if i < len(valid_objects) else []
+            dedup_descs = _describe_rooms(dedup_paths, dedup_rooms, dedup_objects, prompt, lang)
+
+            # Map dedup descriptions back to all valid images by room type
+            room_desc_map = {}
+            for j, room in enumerate(dedup_rooms):
+                desc = dedup_descs[j] if j < len(dedup_descs) else ""
+                if not desc:
+                    img_objs = dedup_objects[j]
                     obj_str  = ", ".join(img_objs[:4]) if img_objs else ""
-                    fb = f"The {img_room.lower()} was detected"
-                    fb += f" with the following items visible: {obj_str}." if obj_str else "."
-                    if i < len(individual_descs):
-                        individual_descs[i] = fb
-                    else:
-                        individual_descs.append(fb)
+                    desc = f"The {room.lower()} was detected"
+                    desc += f" with the following items visible: {obj_str}." if obj_str else "."
+                room_desc_map[room.lower()] = desc
+
+            individual_descs = []
+            for i in range(len(valid_paths)):
+                room_key = valid_rooms[i].lower() if i < len(valid_rooms) else "room"
+                individual_descs.append(room_desc_map.get(room_key, ""))
 
             for i, result_idx in enumerate(valid_indices):
                 results[result_idx]["description"] = individual_descs[i] if i < len(individual_descs) else ""
 
-            room_description = " ".join(individual_descs) if individual_descs else "No description generated."
-            print(f"[LLAVA] {len(individual_descs)} room descriptions generated (1 batch call)")
+            # Build room_description from unique descriptions only (one per room type)
+            unique_descs = list(dict.fromkeys(d for d in individual_descs if d))
+
+            # Craft a tone-matched intro line (randomly varied each generation)
+            import random
+            suburb    = details.get("suburb", "Adelaide")
+            beds      = details.get("beds", "")
+            baths     = details.get("baths", "")
+            tone      = details.get("tone", "professional")
+            prop_type = details.get("prop_type", "property")
+            pt        = prop_type.lower()
+            summary   = f"{beds} bedroom, {baths} bathroom" if beds and baths else ""
+
+            desc = f"{summary} {pt}".strip() if summary else pt
+            intro_options = {
+                "professional": [
+                    f"Welcome to this beautifully presented {desc} in {suburb}, where thoughtful design meets everyday comfort.",
+                    f"This property offers a comfortable and stylish lifestyle with a thoughtfully designed {desc} set in the heart of {suburb}.",
+                    f"Presenting a wonderful opportunity to secure this well-appointed {desc} in one of {suburb}'s most desirable pockets.",
+                    f"Discover the perfect blend of modern living and timeless appeal in this impressive {desc} located in {suburb}.",
+                    f"Step into a home that truly has it all — this {desc} in {suburb} delivers style, space, and convenience in equal measure.",
+                ],
+                "luxury": [
+                    f"Welcome to an extraordinary {desc} in the prestigious suburb of {suburb}, where every detail has been curated for those who expect nothing but the finest.",
+                    f"Step inside this exceptional {desc} in {suburb} — a residence where impeccable craftsmanship and refined living come together in perfect harmony.",
+                    f"Indulge in the pinnacle of luxury living with this breathtaking {desc} nestled in the heart of {suburb}, offering an unparalleled lifestyle experience.",
+                    f"For the discerning buyer who refuses to compromise, this magnificent {desc} in {suburb} represents a rare opportunity to acquire something truly special.",
+                    f"Elevate your lifestyle with this one-of-a-kind {desc} in {suburb}, masterfully designed to satisfy the most sophisticated of tastes.",
+                ],
+                "family": [
+                    f"Welcome home to this wonderful {desc} in the heart of {suburb} — a place where families grow, memories are made, and every day feels like coming home.",
+                    f"This property offers a comfortable and inviting lifestyle perfect for the whole family, with a thoughtfully designed {desc} nestled in family-friendly {suburb}.",
+                    f"From the moment you arrive, this warm and welcoming {desc} in {suburb} wraps you in comfort — designed for the way modern families truly live.",
+                    f"Discover a home that grows with your family — this generous {desc} in {suburb} has everything you need for a relaxed and connected family life.",
+                    f"Make cherished memories in this spacious and well-loved {desc} in {suburb}, perfectly positioned close to parks, schools, and all family essentials.",
+                ],
+                "investment": [
+                    f"Presenting a compelling investment opportunity in {suburb} — this well-maintained {desc} offers strong rental appeal and outstanding long-term potential.",
+                    f"This property offers a smart and strategic lifestyle investment, with a well-positioned {desc} in the high-demand suburb of {suburb}.",
+                    f"Welcome to one of {suburb}'s most sought-after investment prospects — a solid {desc} with immediate rental appeal and a location tenants love.",
+                    f"Secure your financial future with this outstanding {desc} in {suburb}, combining reliable rental income potential with excellent capital growth fundamentals.",
+                    f"An astute investor's dream awaits in {suburb} — this {desc} delivers the perfect combination of location, quality, and yield.",
+                ],
+            }
+            options = intro_options.get(tone, intro_options["professional"])
+            intro = random.choice(options)
+
+            # Build 2-3 paragraphs: intro as first, then up to 2 room descriptions
+            para_parts = [intro] + [d.strip() for d in unique_descs[:2] if d.strip()]
+            room_description = "\n\n".join(para_parts)
+            print(f"[LLAVA] {len(dedup_paths)} unique rooms described (from {len(valid_paths)} images)")
 
         if fp_paths:
             try:
@@ -270,26 +352,25 @@ def upload():
             except Exception as e:
                 print(f"[LLAVA] Floor plan description error: {e}")
 
-        # Second LLaVA analysis call skipped to reduce generation time
-        property_analysis = {}
-        print(f"[SPEED] Skipped 5-dimension analysis (saves 20-40s)")
-
-        if valid_paths and not property_analysis.get("room_types"):
-            seen = []
-            for r in valid_rooms:
-                if r not in seen and r not in ("invalid", "floor plan"):
-                    seen.append(r)
-            property_analysis["room_types"] = [
-                {"room": r, "size": "unknown", "flooring": "unknown", "ceiling": "unknown"}
-                for r in seen
-            ]
+        # Build analysis from descriptions — no extra LLaVA call needed
+        if valid_paths:
+            from models.llava_model.llava_model import _fallback_analysis, _enrich_room_types_from_descriptions
+            property_analysis = _fallback_analysis(valid_rooms, valid_objects, individual_descs)
+            print(f"[ANALYSIS] Built from descriptions — {len(property_analysis.get('room_types', []))} rooms")
 
     flat_objects   = [obj for sublist in all_objects for obj in sublist]
     unique_objects = list(dict.fromkeys(flat_objects))
     primary_room   = next((r for r in all_rooms if r not in ["invalid", "floor plan"]), "Property")
 
-    listing = generate_listing(room_type=primary_room, objects=unique_objects, details=details)
+    listing_template = generate_listing(room_type=primary_room, objects=unique_objects, details=details)
     ads = generate_facebook_ads(room_type=primary_room, objects=unique_objects, details=details)
+
+    # Build final listing: LLaVA paragraphs (if available) + highlights from template
+    if room_description and "The Highlights:" in listing_template:
+        highlights_part = listing_template[listing_template.index("The Highlights:"):]
+        listing = room_description + "\n\n" + highlights_part
+    else:
+        listing = listing_template
 
     # Compliance check on generated listing
     compliance_violations = db.check_compliance(listing)

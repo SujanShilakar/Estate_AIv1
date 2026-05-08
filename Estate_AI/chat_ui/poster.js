@@ -163,63 +163,66 @@
     const price    = (details.price || '').trim();
     const landSize = (details.land_size || '').trim();
 
-    // Headline description: trim to format-appropriate length
-    const trimmed = listing.replace(/\s+/g, ' ').trim();
-    const maxLen = state.format === 'landscape' ? 180
-                 : state.format === 'story'     ? 380
-                 : 280;
-    let blurb = trimmed;
-    if (trimmed.length > maxLen) {
-      const sentences = trimmed.match(/[^.!?]+[.!?]+/g) || [trimmed];
-      blurb = '';
-      for (const s of sentences) {
-        if ((blurb + s).length > maxLen) break;
-        blurb += s;
+    // Parse the full listing text into paragraphs and highlights
+    const listingText = (data.room_description && data.room_description.trim())
+                      || listing
+                      || '';
+
+    let descParagraphs = [];
+    let highlights = [];
+
+    if (listingText) {
+      const rawLines = listingText.split('\n');
+      let currentPara = [];
+      let inHighlights = false;
+
+      for (const line of rawLines) {
+        const trimmed = line.trim();
+        if (/^The Highlights\s*[:\-]?\s*$/i.test(trimmed)) {
+          if (currentPara.length) {
+            descParagraphs.push(currentPara.join(' ').trim());
+            currentPara = [];
+          }
+          inHighlights = true;
+          continue;
+        }
+        if (inHighlights) {
+          const m = trimmed.match(/^[-•*]\s*(.+)/);
+          if (m) highlights.push(m[1].trim());
+        } else if (trimmed) {
+          currentPara.push(trimmed);
+        } else if (currentPara.length) {
+          descParagraphs.push(currentPara.join(' ').trim());
+          currentPara = [];
+        }
       }
-      if (!blurb) blurb = trimmed.slice(0, maxLen) + '…';
-    }
-    if (!blurb) {
-      blurb = data.room_description || tx(['poster_default_blurb'],
-        'A beautifully presented home in a sought-after location, ready to welcome its next chapter.');
+      if (currentPara.length) descParagraphs.push(currentPara.join(' ').trim());
     }
 
-    // Feature bullets from detected objects + tone-based extras
-    const objs = (data.all_objects || []).slice(0, 6);
+    // Fallback if nothing parsed
+    if (!descParagraphs.length && !highlights.length && listingText) {
+      const sentences = listingText.replace(/\s+/g, ' ').trim().match(/[^.!?]+[.!?]+/g) || [listingText];
+      descParagraphs = [sentences.slice(0, 4).join(' ').trim()];
+    }
+    if (!descParagraphs.length) {
+      descParagraphs = [tx(['poster_default_blurb'],
+        'A beautifully presented home in a sought-after location, ready to welcome its next chapter.')];
+    }
+
+    // Limit content for landscape (less vertical space)
+    const maxParas = state.format === 'landscape' ? 2 : descParagraphs.length;
+
     const tone = details.tone || 'professional';
-    const extras = {
-      professional: ['Quality finishes throughout', 'Move-in ready condition'],
-      luxury:       ['Premium fittings and finishes', 'Designer-led interiors'],
-      family:       ['Family-friendly layout', 'Close to schools & parks'],
-      investment:   ['Strong rental potential', 'High-growth location'],
-    }[tone] || [];
-
-    const objPhrases = objs.map(o => prettyFeature(o)).filter(Boolean).slice(0, 4);
-    const features = [...new Set([...objPhrases, ...extras])].slice(0, 6);
 
     return {
       suburb, propType, beds, baths, parking,
-      price, landSize, blurb, features, images, tone,
+      price, landSize,
+      descParagraphs: descParagraphs.slice(0, maxParas),
+      highlights,
+      images, tone,
     };
   }
 
-  function prettyFeature(obj) {
-    const map = {
-      'tv':            'Entertainment-ready living',
-      'couch':         'Spacious lounge area',
-      'sofa':          'Spacious lounge area',
-      'bed':           'Comfortable bedrooms',
-      'dining table':  'Open-plan dining',
-      'oven':          'Modern kitchen appliances',
-      'microwave':     'Modern kitchen appliances',
-      'refrigerator':  'Modern kitchen appliances',
-      'sink':          'Quality kitchen fittings',
-      'toilet':        'Updated bathrooms',
-      'potted plant':  'Landscaped surrounds',
-      'car':           'Off-street parking',
-      'chair':         'Stylish furnishings',
-    };
-    return map[obj.toLowerCase()] || null;
-  }
 
   // ─── Render the poster preview ───────────────────────────
   function renderPoster() {
@@ -286,12 +289,16 @@
       ? `${c.suburb}, SA`
       : tx(['poster_addr_placeholder'], 'Premium property listing');
 
-    const featureHtml = c.features.map(f => `
-      <div class="feature-item">
-        <i class="bi bi-check-circle-fill"></i>
-        <span>${escapeHtml(f)}</span>
+    const descHtml = c.descParagraphs.map(p =>
+      `<p class="poster-desc-para">${escapeHtml(p)}</p>`
+    ).join('');
+
+    const highlightsHtml = c.highlights.length ? `
+      <div class="poster-highlights">
+        <div class="poster-highlights-label">The Highlights:</div>
+        ${c.highlights.map(h => `<div class="poster-highlight-item">- ${escapeHtml(h)}</div>`).join('')}
       </div>
-    `).join('');
+    ` : '';
 
     // Build collage HTML
     let heroHtml;
@@ -365,9 +372,9 @@
             </div>
 
             <div class="poster-desc-label">About this property</div>
-            <div class="poster-desc">${escapeHtml(c.blurb)}</div>
+            <div class="poster-desc">${descHtml}</div>
 
-            ${c.features.length ? `<div class="poster-features">${featureHtml}</div>` : ''}
+            ${highlightsHtml}
 
             <div class="poster-footer">
               <div class="footer-left">

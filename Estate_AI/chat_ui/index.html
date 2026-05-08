@@ -285,20 +285,8 @@
 
               <div id="imageDescriptions"></div>
 
-              <div id="analysisPanel" class="analysis-panel">
-                <div class="analysis-header">
-                  <i class="bi bi-cpu" style="color:var(--green);"></i>
-                  <span class="analysis-header-title" data-i18n="analysis_heading">AI Property Analysis</span>
-                  <span class="analysis-header-sub" data-i18n="analysis_sub">Room type · Condition · Fixtures · Style · Luxury features</span>
-                </div>
-                <p style="color:var(--muted);font-style:italic;font-size:0.82rem;" data-i18n="analysis_placeholder">Analysis will appear here after generation.</p>
-              </div>
-
               <div class="tabs">
-                <button class="tab-btn active" data-tab="tabListing" onclick="switchTab('tabListing', this)">
-                  <i class="bi bi-house-door"></i> <span data-i18n="tab_listing">Listing</span>
-                </button>
-                <button class="tab-btn" data-tab="tabAds" onclick="switchTab('tabAds', this)">
+                <button class="tab-btn active" data-tab="tabAds" onclick="switchTab('tabAds', this)">
                   <i class="bi bi-megaphone"></i> <span data-i18n="tab_ads">FB / IG Ads</span>
                 </button>
                 <button class="tab-btn" data-tab="tabPoster" onclick="switchTab('tabPoster', this)">
@@ -306,30 +294,7 @@
                 </button>
               </div>
 
-              <div class="tab-pane active" id="tabListing">
-                <div class="result-card">
-                  <div class="result-head">
-                    <div>
-                      <span class="result-title" data-i18n="listing_title">Realestate.com.au Listing</span>
-                      <span class="badge badge-success" style="margin-left:8px;" data-i18n="listing_badge">150–300 words · SEO</span>
-                    </div>
-                    <div class="result-actions">
-                      <button class="btn-sm" id="editListingBtn" onclick="toggleEdit('listingBody', this)">
-                        <i class="bi bi-pencil"></i> <span data-i18n="btn_edit">Edit</span>
-                      </button>
-                      <button class="btn-sm" onclick="copyEl('listingBody', this)">
-                        <i class="bi bi-clipboard"></i> <span data-i18n="btn_copy">Copy</span>
-                      </button>
-                      <button class="btn-sm" onclick="dlTxt('listingBody','listing.txt')">
-                        <i class="bi bi-download"></i> <span data-i18n="btn_save">Save</span>
-                      </button>
-                    </div>
-                  </div>
-                  <div class="result-body" id="listingBody"></div>
-                </div>
-              </div>
-
-              <div class="tab-pane" id="tabAds">
+              <div class="tab-pane active" id="tabAds">
                 <div id="adsContainer"></div>
               </div>
 

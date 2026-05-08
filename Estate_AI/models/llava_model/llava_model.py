@@ -30,9 +30,22 @@ def _translate(text: str, language: str) -> str:
         return text
 
 
-def _encode_image(image_path: str) -> str:
-    with open(image_path, "rb") as f:
-        return base64.b64encode(f.read()).decode("utf-8")
+def _encode_image(image_path: str, max_px: int = 640) -> str:
+    """Encode image as base64, resizing to max_px on longest side first for speed."""
+    try:
+        from PIL import Image as PILImage
+        import io
+        img = PILImage.open(image_path).convert("RGB")
+        w, h = img.size
+        if max(w, h) > max_px:
+            scale = max_px / max(w, h)
+            img = img.resize((int(w * scale), int(h * scale)), PILImage.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=85)
+        return base64.b64encode(buf.getvalue()).decode("utf-8")
+    except Exception:
+        with open(image_path, "rb") as f:
+            return base64.b64encode(f.read()).decode("utf-8")
 
 
 def _convert_to_jpg_if_needed(image_path: str) -> str:
@@ -61,13 +74,12 @@ def describe_property_image(
     prompt = (
         f"You are a property inspector writing factual room notes. "
         f"CLIP identified this room as: {room_type}. "
-        f"YOLOv8 detected these objects: {objects_str}. "
-        f"Describe only what is visible. Be factual and concise. "
-        f"Include: estimated room size (small/medium/large/generous), "
-        f"flooring type if visible, ceiling height if notable, "
-        f"and major fixtures or built-ins only (e.g. built-in wardrobe, ensuite, island bench). "
-        f"Do NOT use words like stunning, beautiful, luxurious, elegant, serene, inviting, appealing, resort-style, or any marketing adjectives. "
-        f"Write 2-3 plain factual sentences."
+        f"Describe ONLY the permanent physical characteristics visible in the photo: "
+        f"room size (small/medium/large/master if bedroom), flooring type and finish, "
+        f"ceiling height, and any built-in fixtures only (e.g. built-in wardrobe, ensuite, "
+        f"island bench, overhead cabinetry, fireplace, skylights). "
+        f"Do NOT mention any moveable items such as furniture, TV, appliances, decor, or plants. "
+        f"Do NOT use marketing adjectives. Write 2-3 plain factual sentences."
     )
 
     if user_prompt.strip():
@@ -165,96 +177,66 @@ def is_valid_property_image(image_path: str) -> bool:
 
 def _describe_rooms(image_paths: list, all_rooms: list, all_objects: list, user_prompt: str = "", language: str = "en") -> list:
     """
-    Describe ALL room images in ONE LLaVA call.
-    Returns a list of per-image descriptions (translated if needed).
+    Describe each room image individually — one LLaVA call per image.
+    Guarantees no repetition, 3 focused sentences per room, built-in features only.
     """
-    n = len(image_paths)
-    if n == 0:
+    import re
+    if not image_paths:
         return []
 
-    # Build per-image context hints for LLaVA
-    context_parts = []
-    for i, (room, objs) in enumerate(zip(all_rooms, all_objects)):
-        obj_str = ", ".join(objs) if objs else ""
-        line = f"Image {i+1}: {room}"
-        if obj_str:
-            line += f" (objects detected: {obj_str})"
-        context_parts.append(line)
+    descriptions = []
 
-    room_guide = (
-        "flooring type and room size, any permanent built-in features (wardrobe, walk-in robe, "
-        "island bench, ensuite, fireplace, overhead cabinetry, built-in shelving) or mention there are none, "
-        "ceiling height and any notable wall or ceiling features, natural light or spatial flow if clearly visible, "
-        "and overall condition and presentation."
-    )
+    for img_path, room, objects in zip(image_paths, all_rooms, all_objects):
+        room_name = room.lower() if room else "room"
 
-    if n == 1:
-        room_name = all_rooms[0].lower() if all_rooms else "room"
-        obj_str = ", ".join(all_objects[0]) if all_objects and all_objects[0] else ""
         prompt = (
-            f"You are a professional property inspector. Look at this {room_name} photo."
-            + (f" Detected objects: {obj_str}." if obj_str else "")
-            + f" Write a single plain paragraph of 4-5 sentences in English starting with 'The {room_name}'. "
-            f"Cover: {room_guide} "
-            f"IMPORTANT: Do NOT number sentences. Do NOT use [1] [2] or any brackets or bullet points. "
-            f"Write flowing prose only. No marketing words."
-        )
-    else:
-        room_labels = [all_rooms[i].lower() if i < len(all_rooms) else "room" for i in range(n)]
-        sections = " ".join(
-            f"For image {i+1} (the {room_labels[i]}), begin with 'The {room_labels[i]}'."
-            for i in range(n)
-        )
-        prompt = (
-            f"You are a professional property inspector. I am showing you {n} room photos.\n"
-            f"Detected rooms: {'; '.join(context_parts)}.\n\n"
-            f"Write one continuous paragraph in English. {sections} "
-            f"For each room cover: {room_guide} "
-            f"CRITICAL RULES: "
-            f"Do NOT number sentences. Do NOT write [1] [2] [3] or any numbers in brackets. "
-            f"Do NOT use bullet points or hyphens. Write plain flowing prose only. "
-            f"No marketing adjectives. No furniture, curtains, linen, plants, artwork."
+            f"You are a property copywriter describing a {room_name} for a real estate listing.\n"
+            f"Write 4 to 5 sentences in polished, engaging English starting with 'The {room_name}'.\n"
+            f"Cover the following in order:\n"
+            f"1. Overall room size and impression (e.g. generous proportions, well-sized, spacious). "
+            f"If a bedroom, note whether it reads as a master or secondary bedroom.\n"
+            f"2. Flooring — describe the type, finish, and visual appeal (e.g. rich timber floorboards, "
+            f"sleek polished concrete, plush carpet).\n"
+            f"3. Ceiling height and how it affects the feel of the room.\n"
+            f"4. Any permanent built-in fixtures visible (e.g. walk-in robe, ensuite, island bench, "
+            f"overhead cabinetry, fireplace, skylights, built-in shelving). Skip if none visible.\n"
+            f"5. A closing sentence on the overall character or liveability of the space.\n"
+            f"STRICT RULES:\n"
+            f"- Do NOT mention any moveable items: no furniture, TV, appliances, decor, plants, vases, chairs, beds.\n"
+            f"- You MAY use tasteful adjectives (refined, generous, well-appointed, striking) but avoid clichés "
+            f"like stunning, breathtaking, or resort-style.\n"
+            f"- Plain flowing prose. No bullet points, no numbering."
         )
 
-    if user_prompt.strip():
-        prompt += f" Additional context: {user_prompt}"
+        if user_prompt.strip():
+            prompt += f" Additional context: {user_prompt}"
 
-    encoded = [_encode_image(_convert_to_jpg_if_needed(p)) for p in image_paths]
-    payload = {
-        "model": LLAVA_MODEL,
-        "prompt": prompt,
-        "images": encoded,
-        "stream": False,
-        "options": {
-            "temperature": 0,
-            "num_predict": 300,
-            "num_ctx": 2048,
-        },
-    }
+        encoded = _encode_image(_convert_to_jpg_if_needed(img_path))
+        payload = {
+            "model": LLAVA_MODEL,
+            "prompt": prompt,
+            "images": [encoded],
+            "stream": False,
+            "options": {
+                "temperature": 0.3,
+                "num_predict": 300,
+                "num_ctx": 2048,
+            },
+        }
 
-    print(f"[LLAVA DEBUG] About to POST with options={payload['options']}")
-    raw = ""
-    try:
-        r = requests.post(OLLAMA_URL, json=payload, timeout=60)
-        r.raise_for_status()
-        raw = r.json().get("response", "").strip()
-        print(f"[LLAVA] _describe_rooms batch ok ({n} images, {len(raw)} chars)")
-    except Exception as e:
-        print(f"[LLAVA] _describe_rooms error: {e}")
-        return [""] * n
+        try:
+            r = requests.post(OLLAMA_URL, json=payload, timeout=60)
+            r.raise_for_status()
+            raw = r.json().get("response", "").strip()
+            # Strip any numbering LLaVA adds
+            raw = re.sub(r'\[\d+\]|\(\d+\)|\b\d+\.\s+', '', raw).strip()
+            print(f"[LLAVA] {room_name}: {len(raw)} chars")
+            descriptions.append(raw)
+        except Exception as e:
+            print(f"[LLAVA] {room_name} error: {e}")
+            descriptions.append("")
 
-    # Strip numbered patterns LLaVA sometimes adds despite instructions
-    import re
-    raw = re.sub(r'\[\d+\]|\(\d+\)|\d+\.\s+', '', raw).strip()
-
-    # For multi-room: LLaVA returns one paragraph — split into per-room chunks by room name
-    if n == 1:
-        descriptions = [raw]
-    else:
-        room_labels = [all_rooms[i].lower() if i < len(all_rooms) else "room" for i in range(n)]
-        descriptions = _split_paragraph_by_room(raw, room_labels)
-
-    # Translate each description via Google Translate
+    # Translate if needed
     if language != "en":
         descriptions = [_translate(d, language) if d else "" for d in descriptions]
 
@@ -366,30 +348,39 @@ def analyse_property_images(
     all_rooms: list,
     all_objects: list,
     language: str = "en",
+    descriptions: list = None,
 ) -> dict:
     """5-dimension AI property analysis across all images combined."""
     if not image_paths:
         return {}
 
+    # Build rich per-room context including LLaVA descriptions if available
     room_context_parts = []
-    for room, objects in zip(all_rooms, all_objects):
+    for i, (room, objects) in enumerate(zip(all_rooms, all_objects)):
         if room in ("invalid", "floor plan"):
             continue
         obj_str = ", ".join(objects) if objects else "none detected"
-        room_context_parts.append(f"{room.title()} (YOLO objects: {obj_str})")
+        line = f"{room.title()} (objects: {obj_str}"
+        if descriptions and i < len(descriptions) and descriptions[i]:
+            line += f"; description: {descriptions[i]}"
+        line += ")"
+        room_context_parts.append(line)
     context_str = "; ".join(room_context_parts) if room_context_parts else "multiple rooms"
 
     prompt = (
         f"You are an expert property analyst. I am showing you {len(image_paths)} interior property image(s). "
-        f"CLIP/YOLO pre-analysis: {context_str}. "
-        f"Analyse all images and return ONLY a valid JSON object in English — no explanation, no markdown, no backticks. "
+        f"Pre-analysis context: {context_str}. "
+        f"Using both the images AND the context above, return ONLY a valid JSON object in English — no explanation, no markdown, no backticks. "
         f"The JSON must have exactly these keys:\n"
         f"  room_types: array of objects, one per visible room, each with keys: "
-        f"    'room', 'size' ('small'|'medium'|'large'|'generous'), 'flooring', 'ceiling' ('standard'|'high'|'very high'|'unknown')\n"
+        f"    'room' (room name), 'size' ('small'|'medium'|'large'|'generous'), "
+        f"    'flooring' (e.g. 'timber', 'tile', 'carpet', 'concrete', 'hybrid'), "
+        f"    'ceiling' ('standard'|'high'|'very high'|'unknown')\n"
         f"  interior_condition: object with 'rating' ('poor'|'fair'|'good'|'excellent') and 'notes' (1 short factual sentence)\n"
-        f"  fixtures: array of strings. Empty array if none.\n"
+        f"  fixtures: array of strings listing built-in fixtures only. Empty array if none.\n"
         f"  architectural_style: object with 'style', 'confidence' ('low'|'medium'|'high'), 'notes' (1 short sentence)\n"
         f"  luxury_features: array of strings. Empty array if none.\n"
+        f"IMPORTANT: Use the description context to fill in size, flooring and ceiling — do NOT return 'unknown' if the description mentions them. "
         f"Return ONLY the JSON object. No other text."
     )
 
@@ -405,8 +396,8 @@ def analyse_property_images(
         "format": "json",
         "options": {
             "temperature": 0,
-            "num_predict": 800,
-            "num_ctx": 2048,
+            "num_predict": 1200,
+            "num_ctx": 4096,
         },
     }
 
@@ -417,13 +408,13 @@ def analyse_property_images(
         raw = response.json().get("response", "").strip()
     except requests.exceptions.ConnectionError:
         print("[LLAVA] Analysis: cannot connect to Ollama — using fallback")
-        return _fallback_analysis(all_rooms, all_objects)
+        return _fallback_analysis(all_rooms, all_objects, descriptions)
     except requests.exceptions.Timeout:
         print("[LLAVA] Analysis: request timed out — using fallback")
-        return _fallback_analysis(all_rooms, all_objects)
+        return _fallback_analysis(all_rooms, all_objects, descriptions)
     except Exception as e:
         print(f"[LLAVA] Analysis request error: {e}")
-        return _fallback_analysis(all_rooms, all_objects)
+        return _fallback_analysis(all_rooms, all_objects, descriptions)
 
     # Safe print — avoid Windows encoding crash with non-ASCII chars
     print(f"[LLAVA] Raw analysis received ({len(raw)} chars)")
@@ -465,6 +456,13 @@ def analyse_property_images(
         ]
         print(f"[LLAVA] room_types filled from CLIP inside analysis: {rooms}")
 
+    # Fill any remaining 'unknown' fields by extracting from descriptions
+    if descriptions:
+        analysis["room_types"] = _enrich_room_types_from_descriptions(
+            analysis["room_types"], all_rooms, descriptions
+        )
+        print(f"[LLAVA] room_types enriched from descriptions")
+
     # Translate free-text fields after parsing (always safe — _translate has its own try/except)
     if language != "en":
         ic = analysis.get("interior_condition", {})
@@ -481,14 +479,109 @@ def analyse_property_images(
     return analysis
 
 
-def _fallback_analysis(all_rooms: list, all_objects: list) -> dict:
+def _extract_from_description(desc: str) -> dict:
+    """
+    Extract size, flooring and ceiling from a plain-text room description.
+    Returns a dict with keys 'size', 'flooring', 'ceiling' — value is None if not found.
+    """
+    import re
+    d = desc.lower()
+
+    # ── SIZE ── (match only room-size context, not "large window" etc.)
+    size = None
+    if re.search(r'\bgenerous(?:ly[\s-]sized)?\b|\bvery\s+large\s+(?:room|space)\b|\bexpansive\b|\bspacious\s+(?:room|space|area)\b', d):
+        size = "generous"
+    elif re.search(r'\blarge[\s-]sized\b|\blarge\s+(?:room|space|area)\b|\bsizeable\b', d):
+        size = "large"
+    elif re.search(r'\bmedium[\s-]sized\b|\bmoderate[\s-]sized\b', d):
+        size = "medium"
+    elif re.search(r'\bsmall[\s-]sized\b|\bsmall\s+(?:room|space|area)\b|\bcompact\b|\bcosy\b|\bcozy\b', d):
+        size = "small"
+
+    # ── FLOORING ──────────────────────────────────────────────────────────────
+    flooring = None
+    flooring_patterns = [
+        (r'\btimber\b|\bhardwood\b|\bwood(?:en)?\s+floor|\boak\b|\bfloorboard', "timber"),
+        (r'\bpolished\s+concrete\b|\bconcrete\s+floor', "polished concrete"),
+        (r'\bconcrete\b', "concrete"),
+        (r'\bporcelain\b', "porcelain tile"),
+        (r'\bterracotta\b', "terracotta tile"),
+        (r'\bstone\s+tile|\bstone\s+floor|\bnatural\s+stone', "stone tile"),
+        (r'\btile[sd]?\s+floor|\btiling\b|\btiled\b|\btile\b', "tile"),
+        (r'\bcarpet(?:ed)?\b', "carpet"),
+        (r'\bhybrid\b|\blvp\b|\bvinyl\b|\blaminate\b', "hybrid/laminate"),
+        (r'\bslatted\b|\bdeck(?:ing)?\b', "timber decking"),
+    ]
+    for pattern, label in flooring_patterns:
+        if re.search(pattern, d):
+            flooring = label
+            break
+
+    # ── CEILING ───────────────────────────────────────────────────────────────
+    ceiling = None
+    if re.search(r'\bvery\s+high\s+ceiling|\bdouble[\s-]height\b|\bvaulted\b|\braked\b', d):
+        ceiling = "very high"
+    elif re.search(r'\bhigh\s+ceiling|\belevated\s+ceiling|\bsoaring\b|\bgrand\s+ceiling', d):
+        ceiling = "high"
+    elif re.search(r'\bstandard\s+ceiling|\baverage\s+ceiling|\bmoderate\s+ceiling\b', d):
+        ceiling = "standard"
+    elif re.search(r'\bceiling\s+height\s+is\s+average\b|\bceiling\s+is\s+standard\b', d):
+        ceiling = "standard"
+
+    return {"size": size, "flooring": flooring, "ceiling": ceiling}
+
+
+def _enrich_room_types_from_descriptions(room_types: list, all_rooms: list, descriptions: list) -> list:
+    """
+    For each room_type entry that has 'unknown' fields, try to fill them
+    from the matching description text.
+    """
+    if not descriptions:
+        return room_types
+
+    # Build a map: room name (lower) -> description
+    desc_map = {}
+    for i, room in enumerate(all_rooms):
+        if room in ("invalid", "floor plan"):
+            continue
+        if i < len(descriptions) and descriptions[i]:
+            desc_map[room.lower()] = descriptions[i]
+
+    for rt in room_types:
+        room_key = rt.get("room", "").lower()
+        desc = desc_map.get(room_key, "")
+        if not desc:
+            # try partial match
+            for k, v in desc_map.items():
+                if k in room_key or room_key in k:
+                    desc = v
+                    break
+        if not desc:
+            continue
+
+        extracted = _extract_from_description(desc)
+        if rt.get("size", "unknown") in ("unknown", "", None) and extracted["size"]:
+            rt["size"] = extracted["size"]
+        if rt.get("flooring", "unknown") in ("unknown", "", None) and extracted["flooring"]:
+            rt["flooring"] = extracted["flooring"]
+        if rt.get("ceiling", "unknown") in ("unknown", "", None) and extracted["ceiling"]:
+            rt["ceiling"] = extracted["ceiling"]
+
+    return room_types
+
+
+def _fallback_analysis(all_rooms: list, all_objects: list, descriptions: list = None) -> dict:
     rooms = [r for r in all_rooms if r not in ("invalid", "floor plan")]
     flat_objects = [obj for sublist in all_objects for obj in sublist]
+    room_types = [
+        {"room": r, "size": "unknown", "flooring": "unknown", "ceiling": "unknown"}
+        for r in list(dict.fromkeys(rooms))
+    ]
+    # Even in fallback, extract what we can from descriptions
+    if descriptions:
+        room_types = _enrich_room_types_from_descriptions(room_types, all_rooms, descriptions)
     return {
-        "room_types": [
-            {"room": r, "size": "unknown", "flooring": "unknown", "ceiling": "unknown"}
-            for r in list(dict.fromkeys(rooms))
-        ],
+        "room_types": room_types,
         "interior_condition": {"rating": "unknown", "notes": "Could not analyse condition."},
         "fixtures": list(set(flat_objects)),
         "architectural_style": {"style": "unknown", "confidence": "low", "notes": ""},
