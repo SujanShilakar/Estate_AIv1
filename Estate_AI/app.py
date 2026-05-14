@@ -45,14 +45,16 @@ def is_floor_plan(filepath: str) -> bool:
 
 
 # ─── Static page routing ──────────────────────────
+
 @app.route("/")
 def index_redirect():
-    """Root: show landing page. If already logged in go to dashboard."""
-    user = get_current_user()
-    if user:
-        if user["role"] == "admin":
-            return redirect("/admin/")
-        return redirect("/app/")
+    """Root: always show the landing page for everyone."""
+    return send_from_directory("chat_ui", "landing.html")
+
+
+@app.route("/home")
+def home_page():
+    """Dedicated /home route — always shows landing page even when logged in."""
     return send_from_directory("chat_ui", "landing.html")
 
 
@@ -101,7 +103,7 @@ def serve_static(path):
     return send_from_directory("chat_ui", path)
 
 
-# ─── Generation pipeline (now requires login) ────
+# ─── Generation pipeline (requires login) ────────
 @app.route("/upload", methods=["POST"])
 @login_required()
 def upload():
@@ -188,7 +190,7 @@ def upload():
             all_rooms.append("Unknown")
             all_objects.append([])
 
-    # Step 4: Separate LLaVA calls
+    # Step 4: LLaVA calls
     property_analysis      = {}
     room_description       = ""
     floor_plan_description = ""
@@ -252,10 +254,8 @@ def upload():
     listing = generate_listing(room_type=primary_room, objects=unique_objects, details=details)
     ads = generate_facebook_ads(room_type=primary_room, objects=unique_objects, details=details)
 
-    # Compliance check on generated listing
     compliance_violations = db.check_compliance(listing)
 
-    # Persist generation to history
     try:
         gen_id = db.save_generation(user["id"], {
             "suburb":          details["suburb"],
@@ -317,7 +317,6 @@ def get_my_generation(gid):
 @app.route("/api/generations/<int:gid>", methods=["PUT"])
 @login_required()
 def update_my_generation(gid):
-    """Allow agent to save edited listing back."""
     user = request.current_user
     gen = db.get_generation(gid)
     if not gen:
@@ -338,7 +337,6 @@ def update_my_generation(gid):
 @app.route("/api/generations/<int:gid>", methods=["DELETE"])
 @login_required()
 def delete_my_generation(gid):
-    """Allow agent to delete their own generation."""
     user = request.current_user
     gen = db.get_generation(gid)
     if not gen:
@@ -352,7 +350,6 @@ def delete_my_generation(gid):
 @app.route("/api/templates", methods=["GET"])
 @login_required()
 def get_active_templates():
-    """Agents can view active templates."""
     return jsonify({"templates": db.list_templates(active_only=True)})
 
 

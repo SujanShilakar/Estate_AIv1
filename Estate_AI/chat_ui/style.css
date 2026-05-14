@@ -48,6 +48,26 @@ html, body {
   grid-template-columns: 62px 1fr;
 }
 
+
+.home-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255,255,255,0.55);
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.15);
+  transition: all 0.2s;
+}
+.home-btn:hover {
+  color: #fff;
+  border-color: rgba(255,255,255,0.35);
+}
+
+
 /* ═══════ SIDEBAR ═══════ */
 .sidebar {
   background: var(--forest);
